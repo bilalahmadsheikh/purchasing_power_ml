@@ -36,6 +36,12 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
       - run: pip install -q -r requirements.txt pytest pytest-cov
+      - name: Create mock model files for testing
+        run: |
+          mkdir -p models/pppq
+          echo "mock model" > models/pppq/lgbm_model.txt
+          echo "mock model" > models/pppq/xgb_model.json
+          echo '["feature1", "feature2"]' > models/pppq/feature_columns.json
       - run: pytest tests/ --cov=src --cov-report=xml -v
       - uses: codecov/codecov-action@v3
         with:
