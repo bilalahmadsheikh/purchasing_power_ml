@@ -1,0 +1,83 @@
+# ============================================================================
+# PPP-Q Production Docker Compose
+# Full production stack without monitoring (lighter)
+# ============================================================================
+
+services:
+  # ==========================================================================
+  # Core API Service (Production)
+  # ==========================================================================
+  pppq-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: production
+    container_name: pppq-api
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_DIR=/app/models/pppq/
+      - DATA_DIR=/app/data/processed/pppq/
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=INFO
+      - WORKERS=4
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: always
+    networks:
+      - pppq-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ==========================================================================
+  # Redis Cache
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: pppq-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    restart: always
+    networks:
+      - pppq-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Nginx Reverse Proxy
+  # ==========================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: pppq-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - pppq-api
+    restart: always
+    networks:
+      - pppq-network
+
+networks:
+  pppq-network:
+    driver: bridge
+
+volumes:
+  redis-data:
