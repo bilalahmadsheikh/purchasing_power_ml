@@ -63,6 +63,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create mock data for CI build
+        run: |
+          mkdir -p data/processed/pppq/train data/processed/pppq/test data/processed/pppq/val
+          mkdir -p models/pppq
+          
+          # Create minimal mock CSV files
+          echo "Asset,PP_Multiplier_5Y,Volatility_90D,Sharpe_Ratio_5Y,Real_Return_5Y" > data/processed/pppq/train/pppq_train.csv
+          echo "Bitcoin,3.5,0.42,1.2,0.15" >> data/processed/pppq/train/pppq_train.csv
+          
+          echo "Asset,PP_Multiplier_5Y,Volatility_90D,Sharpe_Ratio_5Y,Real_Return_5Y" > data/processed/pppq/test/pppq_test.csv
+          echo "Bitcoin,3.5,0.42,1.2,0.15" >> data/processed/pppq/test/pppq_test.csv
+          
+          echo "Asset,PP_Multiplier_5Y,Volatility_90D,Sharpe_Ratio_5Y,Real_Return_5Y" > data/processed/pppq/val/pppq_val.csv
+          echo "Bitcoin,3.5,0.42,1.2,0.15" >> data/processed/pppq/val/pppq_val.csv
+          
+          # Create mock feature columns JSON
+          echo '["PP_Multiplier_5Y", "Volatility_90D", "Sharpe_Ratio_5Y", "Real_Return_5Y"]' > models/pppq/feature_columns.json
+          
+          echo "✓ Mock data created for CI build"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
