@@ -59,7 +59,6 @@ venv.bak/
 # Data Files (Keep raw, ignore processed/models for now)
 # ============================================================================
 data/processed/
-models/pppq/
 *.pkl
 *.joblib
 *.json
@@ -70,8 +69,12 @@ models/pppq/
 *.csv
 !requirements.txt
 data/**/*.csv
-models/**/*.txt
-models/**/*.json
+
+# Model files needed for tests - exceptions for required models
+!models/pppq/
+!models/pppq/*.txt
+!models/pppq/*.json
+!models/pppq/*.pkl
 
 # ============================================================================
 # Logs
