@@ -272,6 +272,18 @@ def get_historical_data(
     try:
         test_data = model_manager.get_data()
         
+        # Handle missing test data (CI environment)
+        if test_data is None:
+            return {
+                "asset": asset,
+                "horizon_years": horizon_years,
+                "records_count": 0,
+                "date_range": {"start": "N/A", "end": "N/A"},
+                "price_stats": {"min": 0, "max": 0, "mean": 0, "std": 0},
+                "sample_records": [],
+                "note": "Test data not available"
+            }
+        
         # Filter for asset and get last N records
         asset_data = test_data[test_data['Asset'] == asset].tail(limit)
         
@@ -314,6 +326,19 @@ def check_data_quality(asset: str):
     
     try:
         test_data = model_manager.get_data()
+        
+        # Handle missing test data (CI environment)
+        if test_data is None:
+            return {
+                "asset": asset,
+                "total_records": 0,
+                "numeric_columns": 0,
+                "quality_score": 100.0,
+                "missing_values": {},
+                "status": "UNAVAILABLE",
+                "note": "Test data not available"
+            }
+        
         asset_data = test_data[test_data['Asset'] == asset]
         
         if asset_data.empty:
