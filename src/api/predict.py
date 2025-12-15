@@ -44,32 +44,27 @@ class ModelManager:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
+            # Initialize model attributes
+            cls._instance.lgbm_model = None
+            cls._instance.label_encoder = None
+            cls._instance.feature_columns = None
+            cls._instance.test_data = None
         return cls._instance
     
     def __init__(self):
-        if not self._models_loaded:
-            self.load_models()
-            self._models_loaded = True
+        pass  # Lazy load models only when needed
     
     def load_models(self):
-        """Load all required models and encoders"""
-        import os
-        
-        # Skip loading in test environment or when files don't exist
-        is_testing = "pytest" in os.environ.get("_", "")
+        """Load all required models and encoders - called lazily only when needed"""
+        if self._models_loaded:
+            return  # Already attempted to load
         
         try:
             # Check if model files exist
             if not settings.LGBM_MODEL_PATH.exists():
-                if is_testing:
-                    logger.warning("[WARN] Models not found in test environment - skipping load")
-                    self.lgbm_model = None
-                    self.label_encoder = None
-                    self.feature_columns = []
-                    self.test_data = None
-                    return
-                else:
-                    raise FileNotFoundError(f"LightGBM model not found at {settings.LGBM_MODEL_PATH}")
+                logger.warning(f"[WARN] Model file not found: {settings.LGBM_MODEL_PATH}")
+                self._models_loaded = True
+                return
             
             # Load LightGBM model
             self.lgbm_model = lgb.Booster(model_file=str(settings.LGBM_MODEL_PATH))
@@ -90,30 +85,32 @@ class ModelManager:
             logger.info(f"[OK] Test data loaded ({len(self.test_data)} rows)")
             
         except Exception as e:
-            if is_testing:
-                logger.warning(f"[WARN] Failed to load models in test environment: {e}")
-                self.lgbm_model = None
-                self.label_encoder = None
-                self.feature_columns = []
-                self.test_data = None
-            else:
-                logger.error(f"[ERROR] Error loading models: {e}")
-                raise RuntimeError(f"Failed to load models: {e}")
+            logger.warning(f"[WARN] Could not load models: {e}")
+        finally:
+            self._models_loaded = True
     
     def get_model(self):
-        """Get loaded LightGBM model"""
+        """Get loaded LightGBM model - lazy loads if needed"""
+        if not self._models_loaded:
+            self.load_models()
         return self.lgbm_model
     
     def get_encoder(self):
-        """Get label encoder for A/B/C/D conversion"""
+        """Get label encoder for A/B/C/D conversion - lazy loads if needed"""
+        if not self._models_loaded:
+            self.load_models()
         return self.label_encoder
     
     def get_features(self):
-        """Get feature columns list"""
-        return self.feature_columns
+        """Get feature columns list - lazy loads if needed"""
+        if not self._models_loaded:
+            self.load_models()
+        return self.feature_columns if self.feature_columns else []
     
     def get_data(self):
-        """Get test data DataFrame"""
+        """Get test data DataFrame - lazy loads if needed"""
+        if not self._models_loaded:
+            self.load_models()
         return self.test_data
 
 # Initialize model manager (singleton)
