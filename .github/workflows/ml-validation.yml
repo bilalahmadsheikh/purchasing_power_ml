@@ -8,6 +8,9 @@ on:
       - 'data/processed/**'
       - 'src/ml_testing/**'
       - 'src/models/**'
+      - 'tests/test_ml_validation.py'
+      - 'requirements.txt'
+      - '.github/workflows/ml-validation.yml'
   pull_request:
     branches: [main]
   schedule:
