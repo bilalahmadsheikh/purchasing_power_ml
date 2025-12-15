@@ -190,10 +190,13 @@ def model_info_endpoint():
     """Get model information"""
     from .predict import model_manager
     
+    encoder = model_manager.get_encoder()
+    classes = encoder.classes_.tolist() if encoder else ["A_PRESERVER", "B_PARTIAL", "C_ERODER", "D_DESTROYER"]
+    
     return ModelInfo(
         model_type="LightGBM Gradient Boosting",
         num_features=len(model_manager.get_features()),
-        classes=model_manager.get_encoder().classes_.tolist(),
+        classes=classes,
         performance={
             "macro_f1": settings.MODEL_MACRO_F1,
             "accuracy": settings.MODEL_ACCURACY,

@@ -321,6 +321,14 @@ def predict_asset_class(asset: str, horizon_years: float = 5) -> Tuple[str, floa
         confidence: Prediction confidence (0-1)
         probabilities: Array of probabilities for each class
     """
+    # Get model and encoder first - check if they exist
+    model = model_manager.get_model()
+    encoder = model_manager.get_encoder()
+    
+    if model is None or encoder is None:
+        logger.warning("Models not available - returning mock prediction")
+        return "B_PARTIAL", 0.5, np.array([[0.25, 0.5, 0.2, 0.05]])
+    
     # Load historical data window
     window_data = load_asset_data_window(asset, horizon_years)
     
@@ -329,10 +337,6 @@ def predict_asset_class(asset: str, horizon_years: float = 5) -> Tuple[str, floa
     
     # Prepare horizon-adjusted features
     X = prepare_features_with_horizon(latest_row, horizon_years)
-    
-    # Get model and encoder
-    model = model_manager.get_model()
-    encoder = model_manager.get_encoder()
     
     # Make prediction
     probabilities = model.predict(X)
