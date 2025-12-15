@@ -83,5 +83,5 @@ docker-compose up --build
 ## Author
 
 **Bilal Ahmad Sheikh**  
-GIKI 
+GIKI.
 [GitHub](https://github.com/bilalahmadsheikh) | [LinkedIn](#)
