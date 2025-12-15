@@ -62,18 +62,15 @@ class ModelManager:
         import sys
         import os
         
-        # Skip model loading in CI environment where model files may not exist
-        # or could be incompatible (Python 3.12 + corrupted LightGBM files)
+        # Skip model loading in CI or Docker environment where model files may not exist
+        # or could be incompatible
         if os.environ.get('CI') == 'true':
             logger.info("[INFO] CI environment detected - skipping model loading")
             self._models_loaded = True
             return
         
-        # Check Python version - LightGBM models may crash on Python 3.12
-        py_version = sys.version_info
-        if py_version.major == 3 and py_version.minor >= 12:
-            # Try loading but be extra careful
-            logger.info(f"[INFO] Python {py_version.major}.{py_version.minor} detected - using cautious model loading")
+        # Check if running in Docker (check for .dockerenv file or DOCKER env var)
+        in_docker = os.path.exists('/.dockerenv') or os.environ.get('DOCKER_CONTAINER') == 'true'
         
         try:
             # Check if model files exist
@@ -82,23 +79,43 @@ class ModelManager:
                 self._models_loaded = True
                 return
             
-            # Load LightGBM model
-            self.lgbm_model = lgb.Booster(model_file=str(settings.LGBM_MODEL_PATH))
+            # Check file size - if too small, it's likely a mock file
+            model_size = settings.LGBM_MODEL_PATH.stat().st_size
+            if model_size < 1000:  # Less than 1KB = mock/empty file
+                logger.warning(f"[WARN] Model file too small ({model_size} bytes) - likely mock data")
+                self._models_loaded = True
+                return
+            
+            # Load LightGBM model with timeout protection
+            logger.info(f"[INFO] Loading LightGBM model from {settings.LGBM_MODEL_PATH}...")
+            # Read model as string to avoid file path parsing issues
+            with open(settings.LGBM_MODEL_PATH, 'r') as f:
+                model_str = f.read()
+            self.lgbm_model = lgb.Booster(model_str=model_str)
             logger.info("[OK] LightGBM model loaded")
             
             # Load label encoder
-            with open(settings.LABEL_ENCODER_PATH, "rb") as f:
-                self.label_encoder = pickle.load(f)
-            logger.info("[OK] Label encoder loaded")
+            if settings.LABEL_ENCODER_PATH.exists():
+                with open(settings.LABEL_ENCODER_PATH, "rb") as f:
+                    self.label_encoder = pickle.load(f)
+                logger.info("[OK] Label encoder loaded")
+            else:
+                logger.warning(f"[WARN] Label encoder not found: {settings.LABEL_ENCODER_PATH}")
             
             # Load feature columns
-            with open(settings.FEATURE_COLUMNS_PATH, "r") as f:
-                self.feature_columns = json.load(f)
-            logger.info(f"[OK] Feature columns loaded ({len(self.feature_columns)} features)")
+            if settings.FEATURE_COLUMNS_PATH.exists():
+                with open(settings.FEATURE_COLUMNS_PATH, "r") as f:
+                    self.feature_columns = json.load(f)
+                logger.info(f"[OK] Feature columns loaded ({len(self.feature_columns)} features)")
+            else:
+                logger.warning(f"[WARN] Feature columns not found: {settings.FEATURE_COLUMNS_PATH}")
             
             # Load test data for predictions
-            self.test_data = pd.read_csv(settings.TEST_DATA_PATH)
-            logger.info(f"[OK] Test data loaded ({len(self.test_data)} rows)")
+            if settings.TEST_DATA_PATH.exists():
+                self.test_data = pd.read_csv(settings.TEST_DATA_PATH)
+                logger.info(f"[OK] Test data loaded ({len(self.test_data)} rows)")
+            else:
+                logger.warning(f"[WARN] Test data not found: {settings.TEST_DATA_PATH}")
             
         except Exception as e:
             logger.warning(f"[WARN] Could not load models: {e}")

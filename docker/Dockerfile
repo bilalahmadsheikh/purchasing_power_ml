@@ -39,7 +39,8 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
     MODEL_DIR=/app/models/pppq/ \
     DATA_DIR=/app/data/processed/pppq/ \
-    LOG_LEVEL=INFO
+    LOG_LEVEL=INFO \
+    DOCKER_CONTAINER=true
 
 # Expose port
 EXPOSE 8000
