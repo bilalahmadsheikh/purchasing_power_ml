@@ -21,17 +21,17 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Create directory structure
+# Create directory structure (ensures dirs exist even if COPY sources don't)
 RUN mkdir -p /app/models/pppq /app/data/processed/pppq/train /app/data/processed/pppq/test /app/data/processed/pppq/val /app/logs
 
-# Copy application code (always exists)
+# Copy application code
 COPY src/ /app/src/
 
-# Copy models if they exist (may not exist in CI)
-COPY models/ /app/models/ 2>/dev/null || true
+# Copy models (CI workflow creates mock files before build)
+COPY models/ /app/models/
 
-# Copy processed data if it exists (may not exist in CI)
-COPY data/processed/ /app/data/processed/ 2>/dev/null || true
+# Copy processed data (CI workflow creates mock files before build)
+COPY data/processed/ /app/data/processed/
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
