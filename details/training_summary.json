@@ -1,0 +1,46 @@
+{
+  "training_date": "2025-12-15 10:17:35",
+  "models": {
+    "lightgbm": {
+      "macro_f1": 0.9543097201751978,
+      "accuracy": 0.944179523141655,
+      "best_iteration": 189,
+      "training_time_seconds": 30.546263
+    },
+    "xgboost": {
+      "macro_f1": 0.9487376798760012,
+      "accuracy": 0.9401589527816737,
+      "best_iteration": 153,
+      "training_time_seconds": 12.500648
+    },
+    "random_forest": {
+      "macro_f1": 0.8992281844248096,
+      "accuracy": 0.9035063113604488,
+      "training_time_seconds": 48.465964
+    },
+    "ensemble": {
+      "macro_f1": 0.9530880357556488,
+      "accuracy": 0.9433380084151473
+    }
+  },
+  "best_model": "LightGBM",
+  "top_10_features": [
+    "PPP_Q_Composite_Score",
+    "Market_Cap_Saturation_Pct",
+    "Composite_Score_5Y",
+    "Vol_Adj_PP_Score_5Y",
+    "Volatility_90D",
+    "Growth_Potential_Multiplier",
+    "Real_Return_5Y",
+    "Calmar_Ratio_5Y",
+    "Real_Return_Milk_1Y",
+    "Recovery_Strength"
+  ],
+  "num_features": 38,
+  "classes": [
+    "A_PRESERVER",
+    "B_PARTIAL",
+    "C_ERODER",
+    "D_DESTROYER"
+  ]
+}

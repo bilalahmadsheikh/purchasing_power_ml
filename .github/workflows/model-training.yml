@@ -1,0 +1,23 @@
+name: Model Training
+
+on:
+  push:
+    paths:
+      - 'src/models/**'
+      - 'src/data/**'
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      - run: pip install -q -r requirements.txt
+      - run: echo "✓ Model training pipeline ready"

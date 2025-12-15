@@ -1,0 +1,165 @@
+## 🎯 What You Can Predict - Complete List
+
+---
+
+### **1. CLASSIFICATION TASKS** (Categorical Predictions)
+
+| Task | Target Variable | Description |
+|------|----------------|-------------|
+| **Inflation Regime** | `Inflation_Regime` | Predict Low/Medium/High inflation |
+| **Asset Recommendation** | `{Asset}_Recommendation` | Poor/Moderate/Good/Excellent rating |
+| **Risk Tier** | `{Asset}_Risk_Tier` | Low/Medium/High/Very High risk |
+| **PP Category** | `{Asset}_PP_Category_{Horizon}` | Severe Loss to Excellent Gain (5 classes) |
+| **Best Asset Selection** | `Best_Asset_{Horizon}` | Which asset to buy (Gold/BTC/SP500/etc) |
+| **Preserved PP (Binary)** | `{Asset}_Preserved_PP_{Horizon}` | Yes/No will asset beat inflation |
+| **Final Recommendation** | `{Asset}_Final_Recommendation_5Y` | Poor/Moderate/Good/Excellent (composite) |
+| **Recession Risk Level** | `Recession_Risk_Level` | Low/Moderate/High/Very High |
+| **Yield Curve Signal** | `Yield_Curve_Inverted` | Binary: Recession coming? |
+| **Gold Signal** | `Gold_Signal_From_Real_Rate` | Strong Buy/Buy/Hold/Sell/Strong Sell |
+
+---
+
+### **2. REGRESSION TASKS** (Numeric Predictions)
+
+| Task | Target Variable | Description |
+|------|----------------|-------------|
+| **PP Multiplier** | `{Asset}_PP_Multiplier_{Horizon}` | Exact multiplier (e.g., 1.18x) |
+| **Protection Score** | `{Asset}_Protection_Score` | 0-100 inflation protection score |
+| **PP Score** | `{Asset}_PP_Score_{Horizon}` | 0-100 purchasing power score |
+| **Composite Score** | `{Asset}_Composite_Score_5Y` | 0-200 combined quality score |
+| **Real Returns** | `{Asset}_Real_Return_{Horizon}` | Inflation-adjusted % return |
+| **Volatility** | `{Asset}_Volatility_{30D/90D}` | Predict future volatility |
+| **Sharpe Ratio** | `{Asset}_Sharpe_Ratio_{Horizon}` | Risk-adjusted return metric |
+| **Calmar Ratio** | `{Asset}_Calmar_Ratio_{Horizon}` | Return/drawdown ratio |
+| **Max Drawdown** | `{Asset}_Max_Drawdown` | Worst peak-to-trough % |
+| **Market Cap** | `{Asset}_Market_Cap_Billions` | Predict future market cap |
+| **Saturation %** | `{Asset}_Market_Cap_Saturation_Pct` | How saturated is market |
+| **Growth Potential** | `{Asset}_Growth_Potential_Multiplier` | Room to grow multiplier |
+| **PP vs Cash** | `{Asset}_PP_vs_Cash_{Horizon}` | Ratio vs holding cash |
+| **PP Advantage** | `{Asset}_PP_Advantage_{Horizon}` | % points better than cash |
+| **Vol-Adj Multiplier** | `{Asset}_Vol_Adj_PP_Multiplier_{Horizon}` | Volatility-adjusted PP |
+| **Risk-Adj PP** | `{Asset}_Risk_Adj_PP_{Horizon}` | Risk-adjusted purchasing power |
+| **CPI Correlation** | `{Asset}_CPI_Correlation` | Correlation with inflation |
+
+---
+
+### **3. TIME SERIES FORECASTING** (Future Values)
+
+| Task | Target Variable | Description |
+|------|----------------|-------------|
+| **Price Prediction** | `{Asset}` (price column) | Forecast asset price 30/90/365 days ahead |
+| **Multi-Step Ahead** | Multiple assets | Forecast 5+ assets simultaneously |
+| **Inflation Forecast** | `Inflation_Rate_YoY` | Predict inflation 6-12 months ahead |
+| **Fed Rate** | `Fed_Funds_Rate` | Predict Fed policy changes |
+| **M2 Growth** | `M2_Growth_Rate` | Money supply expansion |
+| **GDP Growth** | `GDP_Growth_Rate` | Economic growth forecast |
+| **Unemployment** | `Unemployment` | Labor market forecast |
+| **Recession Timing** | `Composite_Recession_Risk` | When will recession hit |
+| **Commodity Prices** | `Eggs/Milk/Gas_Price` | Real-world purchasing power |
+
+---
+
+### **4. CLUSTERING TASKS** (Pattern Discovery)
+
+| Task | Goal | Description |
+|------|------|-------------|
+| **Asset Grouping** | Find natural clusters | Inflation hedges, growth assets, stable income |
+| **Market Regimes** | Discover hidden states | Beyond Low/Med/High inflation |
+| **Time Period Clusters** | Group similar periods | 2008 crisis ≈ 2020 COVID period |
+| **Investor Profiles** | Risk tolerance groups | Conservative, Balanced, Aggressive |
+| **Correlation Clusters** | Assets that move together | BTC-ETH-LTC cluster vs Gold-Silver |
+| **Volatility Regimes** | Low/high vol periods | Bull markets vs bear markets |
+
+---
+
+### **5. DIMENSIONALITY REDUCTION** (Feature Engineering)
+
+| Task | Method | Description |
+|------|--------|-------------|
+| **PCA Components** | Extract top 10 PCs | Reduce 1,262 → 10 most important |
+| **Feature Importance** | Identify key drivers | Top 20 features for predictions |
+| **t-SNE Visualization** | 2D/3D plots | Visualize asset relationships |
+| **Economic Factors** | Extract latent factors | "Inflation factor", "Growth factor" |
+
+---
+
+### **6. RECOMMENDATION SYSTEM** (Personalized Advice)
+
+| Task | Target | Description |
+|------|--------|-------------|
+| **Portfolio Allocation** | % per asset | Optimal 60/25/15 split across assets |
+| **Horizon-Specific** | Different for 1Y vs 10Y | Young investor (10Y) vs retiree (1Y) |
+| **Risk-Adjusted** | Match user risk tolerance | Conservative → Treasury ETF, Aggressive → Bitcoin |
+| **Best Asset by Scenario** | `Best_Asset_Composite_5Y` | Top pick for given economic conditions |
+| **Rebalancing Signals** | When to switch assets | Exit Gold → Enter SP500 timing |
+
+---
+
+### **7. ANOMALY DETECTION** (Outlier Identification)
+
+| Task | What to Detect | Description |
+|------|----------------|-------------|
+| **Mispricing Detection** | `{Asset}_Mispricing` | Asset overvalued/undervalued |
+| **Unusual Volatility** | Spikes in volatility | Predict market crashes |
+| **Correlation Breakdown** | Diversification failure | When Gold-BTC correlation breaks |
+| **Black Swan Events** | Extreme drawdowns | Detect 2008/2020 style crashes |
+
+---
+
+### **8. MULTI-OUTPUT MODELS** (Predict Multiple Things)
+
+| Task | Outputs | Description |
+|------|---------|-------------|
+| **All Horizons** | 1Y, 3Y, 5Y, 10Y together | Single model predicts all timeframes |
+| **All Assets** | Gold, BTC, SP500, etc | One model for entire portfolio |
+| **Return + Risk** | Return AND volatility | Predict both mean and variance |
+| **Score Components** | PP + Growth + Vol | Predict all 3 composite inputs |
+
+---
+
+### **9. SURVIVAL ANALYSIS** (Time-to-Event)
+
+| Task | Event | Description |
+|------|-------|-------------|
+| **Time to PP Loss** | When PP < 1.0 | How long until asset loses value |
+| **Drawdown Duration** | Recovery time | How long in red before breakeven |
+| **Recession Onset** | Time to recession | Months until recession hits |
+
+---
+
+### **10. CAUSAL INFERENCE** (Why Questions)
+
+| Task | Question | Description |
+|------|----------|-------------|
+| **M2 → Inflation** | Does money printing cause inflation? | Test Quantity Theory |
+| **Yield Curve → Recession** | Does inversion cause recession? | Validate economic rule |
+| **Fed Rate → Asset Returns** | How do rate hikes affect assets? | Policy impact analysis |
+
+---
+
+## 📊 **Summary by ML Category**
+
+| Category | # of Tasks | Key Examples |
+|----------|-----------|--------------|
+| **Classification** | 10+ | Inflation regime, Asset recommendation, Risk tier |
+| **Regression** | 20+ | PP multiplier, Protection score, Returns |
+| **Time Series** | 10+ | Price forecasting, Inflation prediction, Economic indicators |
+| **Clustering** | 6+ | Asset grouping, Market regimes, Investor profiles |
+| **Dimensionality Reduction** | 3 | PCA, Feature importance, t-SNE |
+| **Recommendation** | 5+ | Portfolio optimization, Horizon-specific picks |
+| **Anomaly Detection** | 4+ | Mispricing, Volatility spikes, Correlation breaks |
+
+---
+
+## 🎯 **Top 6 Tasks for Your Project**
+
+1. **Classification**: Predict `Inflation_Regime` (3 classes)
+2. **Regression**: Predict `{Asset}_PP_Multiplier_5Y` (continuous)
+3. **Time Series**: Forecast `Bitcoin_Price` 90 days ahead
+4. **Clustering**: Group assets by `Market_Cap_Saturation` + `Volatility`
+5. **Dimensionality Reduction**: PCA on 1,262 features → 10 components
+6. **Recommendation**: Predict `Best_Asset_Composite_5Y` (which asset to buy)
+
+---
+
+**You can build 30-40+ different models from this dataset!** 🚀

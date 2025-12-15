@@ -1,0 +1,20 @@
+name: Data Validation
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'data/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - run: pip install -q pandas
+      - run: echo "✓ Data validation pipeline ready"
