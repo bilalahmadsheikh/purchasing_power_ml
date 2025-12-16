@@ -167,10 +167,10 @@ class PipelineConfig:
     TIMEOUT_SECONDS = 3600  # 1 hour
     
     # ========================================================================
-    # EMAIL NOTIFICATION CONFIGURATION
+    # EMAIL NOTIFICATION CONFIGURATION (OPTIONAL)
     # ========================================================================
     
-    ENABLE_NOTIFICATIONS = True
+    ENABLE_NOTIFICATIONS = os.getenv('ENABLE_NOTIFICATIONS', 'false').lower() == 'true'
     NOTIFICATION_EMAIL = os.getenv('NOTIFICATION_EMAIL', 'ba8616127@gmail.com')
     SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
     SMTP_PORT = int(os.getenv('SMTP_PORT', 587))

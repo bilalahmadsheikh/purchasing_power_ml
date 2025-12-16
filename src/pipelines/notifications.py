@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationManager:
-    """Email notification manager for pipeline events"""
+    """Email notification manager for pipeline events (OPTIONAL)"""
     
     def __init__(self):
         self.config = PipelineConfig
@@ -34,7 +34,10 @@ class NotificationManager:
         self.sender_email = self.config.SENDER_EMAIL
         self.sender_password = self.config.SENDER_PASSWORD
         self.recipient_email = self.config.NOTIFICATION_EMAIL
-        self.enabled = self.config.ENABLE_NOTIFICATIONS
+        self.enabled = self.config.ENABLE_NOTIFICATIONS and bool(self.sender_password)
+        
+        if not self.enabled:
+            logger.info("📧 Email notifications DISABLED (set ENABLE_NOTIFICATIONS=true in .env to enable)")
     
     def _send_email(self, subject: str, body: str, html: bool = True) -> bool:
         """
@@ -49,13 +52,12 @@ class NotificationManager:
             True if sent successfully, False otherwise
         """
         if not self.enabled:
-            logger.info("Notifications disabled, skipping email")
-            return False
+            logger.debug("Notifications disabled, skipping email")
+            return True  # Return True so pipeline continues without error
         
         if not self.sender_password:
-            logger.warning("SENDER_PASSWORD not set, cannot send email")
-            logger.info(f"Would send email: {subject}")
-            return False
+            logger.debug("SENDER_PASSWORD not set, skipping email")
+            return True  # Return True so pipeline continues without error
         
         try:
             msg = MIMEMultipart('alternative')

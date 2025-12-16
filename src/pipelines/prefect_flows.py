@@ -465,27 +465,23 @@ def preprocess_data(
             return round(composite, 3)
         
         def assign_class(row):
+            """
+            Assign PPP-Q class based on composite score
+            A_PRESERVER: score >= 65
+            B_PARTIAL: score >= 55
+            C_ERODER: score >= 42
+            D_DESTROYER: score < 42
+            """
             score = row.get('PPP_Q_Composite_Score', 50)
-            asset_category = row.get('Asset_Category', 'stock')
             
-            if asset_category == 'crypto':
-                if score >= 70:
-                    return 'A_PRESERVER'
-                elif score >= 50:
-                    return 'B_PARTIAL'
-                elif score >= 30:
-                    return 'C_ERODER'
-                else:
-                    return 'D_DESTROYER'
+            if score >= 65:
+                return 'A_PRESERVER'
+            elif score >= 55:
+                return 'B_PARTIAL'
+            elif score >= 42:
+                return 'C_ERODER'
             else:
-                if score >= 65:
-                    return 'A_PRESERVER'
-                elif score >= 45:
-                    return 'B_PARTIAL'
-                elif score >= 25:
-                    return 'C_ERODER'
-                else:
-                    return 'D_DESTROYER'
+                return 'D_DESTROYER'
         
         pppq_df['PPP_Q_Composite_Score'] = pppq_df.apply(calculate_composite_score, axis=1)
         pppq_df['PPP_Q_Class'] = pppq_df.apply(assign_class, axis=1)

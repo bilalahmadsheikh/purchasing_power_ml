@@ -111,7 +111,12 @@ class ModelManager:
             try:
                 if settings.FEATURE_COLUMNS_PATH.exists():
                     with open(settings.FEATURE_COLUMNS_PATH, "r") as f:
-                        self.feature_columns = json.load(f)
+                        data = json.load(f)
+                    # Handle both dict format {'features': [...]} and list format [...]
+                    if isinstance(data, dict):
+                        self.feature_columns = data.get('features', [])
+                    else:
+                        self.feature_columns = data
                     logger.info(f"[OK] Feature columns loaded ({len(self.feature_columns)} features)")
                 else:
                     logger.warning(f"[WARN] Feature columns not found: {settings.FEATURE_COLUMNS_PATH}")
