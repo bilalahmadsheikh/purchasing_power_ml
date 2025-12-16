@@ -176,35 +176,78 @@ def fetch_new_data() -> Tuple[pd.DataFrame, int, pd.DataFrame]:
                 }
         
         # ================================================================
-        # STEP 6: Apply feature engineering to NEW data only
+        # STEP 6: COMBINE raw data FIRST, then apply feature engineering
         # ================================================================
-        logger.info("\n⚙️ Engineering features for new data...")
-        asset_configs = get_all_asset_configs(df_new_only, crypto_supplies)
+        # This ensures rolling calculations have historical context!
+        logger.info("\n⚙️ Engineering features with historical context...")
         
-        df_new_featured = calculate_all_returns_volatility_technicals(df_new_only.copy(), asset_configs)
-        df_new_featured = engineer_core_features(df_new_featured)
-        df_new_featured = add_purchasing_power_multipliers_and_baselines(df_new_featured, asset_configs)
-        df_new_featured = add_economic_rules(df_new_featured)
-        df_new_featured = add_market_cap_saturation_and_risk(
-            df_new_featured, None, None, df_crypto_supply
-        )
-        df_new_featured = create_labels(df_new_featured, asset_configs)
-        df_new_featured = round_all_numerical_columns(df_new_featured, 4)
-        
-        # ================================================================
-        # STEP 7: Append to existing dataset (or create new)
-        # ================================================================
         if existing_df is not None:
-            # Append new rows to existing data
-            df_combined = pd.concat([existing_df, df_new_featured], ignore_index=True)
-            df_combined = df_combined.drop_duplicates(subset=['Date'], keep='last')
-            df_combined = df_combined.sort_values('Date').reset_index(drop=True)
-            logger.info(f"📦 Combined: {len(existing_df)} existing + {new_rows} new = {len(df_combined)} total")
+            # Get raw price columns from existing data (without computed features)
+            # We need to identify which columns are raw prices vs computed features
+            raw_columns = [c for c in df_merged.columns]
+            
+            # Load the original raw merged data if it exists for proper price history
+            raw_merged_path = config.PROJECT_ROOT / 'data' / 'raw' / 'merged_raw_data.csv'
+            if raw_merged_path.exists():
+                df_raw_existing = pd.read_csv(raw_merged_path)
+                df_raw_existing['Date'] = pd.to_datetime(df_raw_existing['Date'])
+                
+                # Combine raw existing + new raw data
+                df_raw_combined = pd.concat([df_raw_existing, df_new_only], ignore_index=True)
+                df_raw_combined = df_raw_combined.drop_duplicates(subset=['Date'], keep='last')
+                df_raw_combined = df_raw_combined.sort_values('Date').reset_index(drop=True)
+                
+                # Save updated raw merged data
+                df_raw_combined.to_csv(raw_merged_path, index=False)
+                logger.info(f"📦 Combined raw data: {len(df_raw_existing)} + {len(df_new_only)} = {len(df_raw_combined)} rows")
+            else:
+                df_raw_combined = df_new_only.copy()
+            
+            # Apply feature engineering to FULL combined dataset
+            # This ensures rolling windows have historical data to work with
+            asset_configs = get_all_asset_configs(df_raw_combined, crypto_supplies)
+            
+            df_full_featured = calculate_all_returns_volatility_technicals(df_raw_combined.copy(), asset_configs)
+            df_full_featured = engineer_core_features(df_full_featured)
+            df_full_featured = add_purchasing_power_multipliers_and_baselines(df_full_featured, asset_configs)
+            df_full_featured = add_economic_rules(df_full_featured)
+            df_full_featured = add_market_cap_saturation_and_risk(
+                df_full_featured, None, None, df_crypto_supply
+            )
+            df_full_featured = create_labels(df_full_featured, asset_configs)
+            df_full_featured = round_all_numerical_columns(df_full_featured, 4)
+            
+            # The combined dataset with all features computed correctly
+            df_combined = df_full_featured
+            
+            # Extract just the new rows for logging
+            df_new_featured = df_combined[df_combined['Date'] > last_date].copy()
+            logger.info(f"✅ Features computed with full historical context")
+            logger.info(f"   → Total rows in combined: {len(df_combined)}")
+            logger.info(f"   → New rows processed: {len(df_new_featured)}")
         else:
+            # No existing data - process from scratch
+            asset_configs = get_all_asset_configs(df_new_only, crypto_supplies)
+            
+            df_new_featured = calculate_all_returns_volatility_technicals(df_new_only.copy(), asset_configs)
+            df_new_featured = engineer_core_features(df_new_featured)
+            df_new_featured = add_purchasing_power_multipliers_and_baselines(df_new_featured, asset_configs)
+            df_new_featured = add_economic_rules(df_new_featured)
+            df_new_featured = add_market_cap_saturation_and_risk(
+                df_new_featured, None, None, df_crypto_supply
+            )
+            df_new_featured = create_labels(df_new_featured, asset_configs)
+            df_new_featured = round_all_numerical_columns(df_new_featured, 4)
+            
             df_combined = df_new_featured.sort_values('Date').reset_index(drop=True)
+            
+            # Also save the raw merged data for future incremental updates
+            raw_merged_path = config.PROJECT_ROOT / 'data' / 'raw' / 'merged_raw_data.csv'
+            df_new_only.to_csv(raw_merged_path, index=False)
+            logger.info(f"✅ Initial dataset created: {len(df_combined)} rows")
         
         # ================================================================
-        # STEP 8: Save updated consolidated dataset
+        # STEP 7: Save updated consolidated dataset
         # ================================================================
         config.RAW_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
         df_combined.to_csv(config.RAW_DATA_PATH, index=False)
@@ -579,9 +622,13 @@ def train_models(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataF
         logger.info("\n🚀 Training XGBoost...")
         start_time = datetime.now()
         
+        # Get actual number of classes from the data
+        n_classes = len(label_encoder.classes_)
+        logger.info(f"   Classes detected: {n_classes} - {list(label_encoder.classes_)}")
+        
         xgb_model = xgb.XGBClassifier(
             objective='multi:softprob',
-            num_class=4,
+            num_class=n_classes,
             eval_metric='mlogloss',
             max_depth=7,
             learning_rate=0.05,
@@ -640,8 +687,26 @@ def train_models(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataF
         xgb_metrics = evaluate_model(xgb_model, X_test, y_test_enc, 'xgb')
         rf_metrics = evaluate_model(rf_model, X_test, y_test_enc, 'rf')
         
-        # Ensemble
-        ensemble_proba = (lgbm_metrics['probabilities'] + xgb_metrics['probabilities']) / 2
+        # Ensemble (handle potential shape mismatch)
+        lgbm_proba = lgbm_metrics['probabilities']
+        xgb_proba = xgb_metrics['probabilities']
+        rf_proba = rf_metrics['probabilities']
+        
+        # Ensure all have same shape by padding if necessary
+        max_classes = max(lgbm_proba.shape[1], xgb_proba.shape[1], rf_proba.shape[1])
+        
+        def pad_probabilities(proba, target_classes):
+            if proba.shape[1] < target_classes:
+                padding = np.zeros((proba.shape[0], target_classes - proba.shape[1]))
+                return np.hstack([proba, padding])
+            return proba
+        
+        lgbm_proba_padded = pad_probabilities(lgbm_proba, max_classes)
+        xgb_proba_padded = pad_probabilities(xgb_proba, max_classes)
+        rf_proba_padded = pad_probabilities(rf_proba, max_classes)
+        
+        # Weighted ensemble
+        ensemble_proba = (lgbm_proba_padded * 0.4 + xgb_proba_padded * 0.35 + rf_proba_padded * 0.25)
         ensemble_pred = np.argmax(ensemble_proba, axis=1)
         ensemble_metrics = {
             'accuracy': accuracy_score(y_test_enc, ensemble_pred),
