@@ -999,7 +999,7 @@ def generate_pppq_insights(asset: str, pred_class: str, confidence: float, proba
         predicted_class=pred_class,
         confidence=round(float(confidence) * 100, 1),
         component_scores=component_scores,
-        real_commodity_comparison=None,  # Skipped for speed
+        real_commodity_comparison=calculate_real_commodity_comparison(latest, asset),
         current_status=CurrentStatus(
             volatility=vol_str,
             cycle_position=cycle_pos,
