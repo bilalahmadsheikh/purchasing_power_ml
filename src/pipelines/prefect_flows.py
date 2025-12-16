@@ -57,7 +57,7 @@ config = PipelineConfig
 
 
 # ============================================================================
-# TASK 1: DATA INGESTION
+# TASK 1: DATA INGESTION (INCREMENTAL)
 # ============================================================================
 
 @task(
@@ -66,16 +66,16 @@ config = PipelineConfig
     retry_delay_seconds=config.RETRY_DELAY_SECONDS,
     timeout_seconds=config.TIMEOUT_SECONDS
 )
-def fetch_new_data() -> Tuple[pd.DataFrame, int]:
+def fetch_new_data() -> Tuple[pd.DataFrame, int, pd.DataFrame]:
     """
-    Fetch new data from all sources
-    Only fetches data newer than what exists
+    INCREMENTAL data ingestion - only fetches NEW data since last run
+    Appends new rows to existing consolidated dataset
     
     Returns:
-        Tuple[DataFrame, int]: (complete_data, new_rows_count)
+        Tuple[DataFrame, int, DataFrame]: (complete_data, new_rows_count, new_data_only)
     """
     logger.info("="*80)
-    logger.info("TASK 1: DATA INGESTION")
+    logger.info("TASK 1: INCREMENTAL DATA INGESTION")
     logger.info("="*80)
     
     try:
@@ -99,41 +99,74 @@ def fetch_new_data() -> Tuple[pd.DataFrame, int]:
             get_all_asset_configs
         )
         
-        # Check existing data
-        existing_rows = 0
+        # ================================================================
+        # STEP 1: Check existing data and get last date
+        # ================================================================
+        existing_df = None
         last_date = None
+        existing_rows = 0
+        
         if config.RAW_DATA_PATH.exists():
             existing_df = pd.read_csv(config.RAW_DATA_PATH)
             existing_df['Date'] = pd.to_datetime(existing_df['Date'])
             existing_rows = len(existing_df)
             last_date = existing_df['Date'].max()
-            logger.info(f"📊 Existing data: {existing_rows} rows (last: {last_date.date()})")
+            logger.info(f"📊 Existing data: {existing_rows} rows")
+            logger.info(f"📅 Last date in dataset: {last_date.date()}")
+        else:
+            logger.info("📊 No existing data found - will create initial dataset")
         
-        # Fetch fresh data
-        logger.info("🔄 Fetching economic data...")
+        # ================================================================
+        # STEP 2: Fetch fresh data from all sources
+        # ================================================================
+        logger.info("\n🔄 Fetching data from sources...")
+        
+        logger.info("   → Economic data (FRED)...")
         df_economic = fetch_economic_data()
         
-        logger.info("🔄 Fetching asset prices...")
+        logger.info("   → Asset prices (Yahoo Finance)...")
         df_assets_vix = fetch_asset_and_vix_prices()
         
-        logger.info("🔄 Fetching crypto data...")
+        logger.info("   → Crypto data...")
         df_crypto_prices = fetch_crypto_data_yfinance()
         df_crypto_supply = fetch_crypto_supply_yfinance()
         
-        logger.info("🔄 Fetching commodity baselines...")
+        logger.info("   → Commodity baselines...")
         df_commodities = fetch_real_baselines()
         
-        logger.info("🔄 Fetching global market data...")
+        logger.info("   → Global market data...")
         df_global_m2, df_global_gdp = fetch_global_market_data()
         
-        # Merge all data
-        logger.info("🔗 Merging all data sources...")
+        # ================================================================
+        # STEP 3: Merge all raw data
+        # ================================================================
+        logger.info("\n🔗 Merging all data sources...")
         df_merged = merge_all_raw_data(
             df_economic, df_assets_vix, df_crypto_prices,
             df_commodities, df_global_m2, df_global_gdp
         )
+        df_merged['Date'] = pd.to_datetime(df_merged['Date'])
         
-        # Get crypto supplies for asset configs
+        # ================================================================
+        # STEP 4: Filter to only NEW data (after last_date)
+        # ================================================================
+        if last_date is not None:
+            df_new_only = df_merged[df_merged['Date'] > last_date].copy()
+            new_rows = len(df_new_only)
+            
+            if new_rows == 0:
+                logger.warning("⚠️ No new data found since last update")
+                return existing_df, 0, pd.DataFrame()
+            
+            logger.info(f"✅ Found {new_rows} NEW rows (after {last_date.date()})")
+        else:
+            df_new_only = df_merged.copy()
+            new_rows = len(df_new_only)
+            logger.info(f"✅ Initial dataset: {new_rows} rows")
+        
+        # ================================================================
+        # STEP 5: Get crypto supplies for feature engineering
+        # ================================================================
         crypto_supplies = {}
         if df_crypto_supply is not None and not df_crypto_supply.empty:
             for idx, row in df_crypto_supply.iterrows():
@@ -142,27 +175,46 @@ def fetch_new_data() -> Tuple[pd.DataFrame, int]:
                     'max': row.get('Max_Supply', 2.1e7)
                 }
         
-        # Feature engineering
-        logger.info("⚙️ Engineering features...")
-        asset_configs = get_all_asset_configs(df_merged, crypto_supplies)
+        # ================================================================
+        # STEP 6: Apply feature engineering to NEW data only
+        # ================================================================
+        logger.info("\n⚙️ Engineering features for new data...")
+        asset_configs = get_all_asset_configs(df_new_only, crypto_supplies)
         
-        df_featured = calculate_all_returns_volatility_technicals(df_merged, asset_configs)
-        df_featured = engineer_core_features(df_featured)
-        df_featured = add_purchasing_power_multipliers_and_baselines(df_featured, asset_configs)
-        df_featured = add_economic_rules(df_featured)
-        df_featured = add_market_cap_saturation_and_risk(
-            df_featured, None, None, df_crypto_supply
+        df_new_featured = calculate_all_returns_volatility_technicals(df_new_only.copy(), asset_configs)
+        df_new_featured = engineer_core_features(df_new_featured)
+        df_new_featured = add_purchasing_power_multipliers_and_baselines(df_new_featured, asset_configs)
+        df_new_featured = add_economic_rules(df_new_featured)
+        df_new_featured = add_market_cap_saturation_and_risk(
+            df_new_featured, None, None, df_crypto_supply
         )
-        df_featured = create_labels(df_featured, asset_configs)
-        df_featured = round_all_numerical_columns(df_featured, 4)
+        df_new_featured = create_labels(df_new_featured, asset_configs)
+        df_new_featured = round_all_numerical_columns(df_new_featured, 4)
         
-        # Save consolidated dataset
-        df_featured.to_csv(config.RAW_DATA_PATH, index=False)
+        # ================================================================
+        # STEP 7: Append to existing dataset (or create new)
+        # ================================================================
+        if existing_df is not None:
+            # Append new rows to existing data
+            df_combined = pd.concat([existing_df, df_new_featured], ignore_index=True)
+            df_combined = df_combined.drop_duplicates(subset=['Date'], keep='last')
+            df_combined = df_combined.sort_values('Date').reset_index(drop=True)
+            logger.info(f"📦 Combined: {len(existing_df)} existing + {new_rows} new = {len(df_combined)} total")
+        else:
+            df_combined = df_new_featured.sort_values('Date').reset_index(drop=True)
         
-        new_rows = len(df_featured) - existing_rows
-        logger.info(f"✅ Data ingestion complete: {len(df_featured)} total rows ({new_rows} new)")
+        # ================================================================
+        # STEP 8: Save updated consolidated dataset
+        # ================================================================
+        config.RAW_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+        df_combined.to_csv(config.RAW_DATA_PATH, index=False)
         
-        return df_featured, new_rows
+        logger.info(f"\n✅ Data ingestion complete!")
+        logger.info(f"   → Total rows: {len(df_combined)}")
+        logger.info(f"   → New rows added: {new_rows}")
+        logger.info(f"   → Saved to: {config.RAW_DATA_PATH}")
+        
+        return df_combined, new_rows, df_new_featured
     
     except Exception as e:
         logger.error(f"❌ Data ingestion failed: {str(e)}")
@@ -170,7 +222,7 @@ def fetch_new_data() -> Tuple[pd.DataFrame, int]:
 
 
 # ============================================================================
-# TASK 2: PREPROCESSING & FEATURE ENGINEERING
+# TASK 2: PREPROCESSING & FEATURE ENGINEERING (INCREMENTAL)
 # ============================================================================
 
 @task(
@@ -179,16 +231,36 @@ def fetch_new_data() -> Tuple[pd.DataFrame, int]:
     retry_delay_seconds=config.RETRY_DELAY_SECONDS,
     timeout_seconds=config.TIMEOUT_SECONDS
 )
-def preprocess_data(df_raw: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def preprocess_data(
+    df_raw: pd.DataFrame,
+    new_rows_count: int = 0,
+    df_new_only: pd.DataFrame = None
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Preprocess data and create train/val/test splits
+    INCREMENTAL preprocessing - processes only NEW rows and appends to existing splits
+    
+    Args:
+        df_raw: Complete dataset (existing + new)
+        new_rows_count: Number of new rows added
+        df_new_only: DataFrame containing only the new rows
     
     Returns:
         Tuple[train_df, val_df, test_df]
     """
     logger.info("="*80)
-    logger.info("TASK 2: PREPROCESSING & FEATURE ENGINEERING")
+    logger.info("TASK 2: INCREMENTAL PREPROCESSING")
     logger.info("="*80)
+    
+    # Skip if no new data
+    if new_rows_count == 0:
+        logger.info("⚠️ No new data to preprocess - loading existing splits")
+        if config.TRAIN_DATA.exists() and config.VAL_DATA.exists() and config.TEST_DATA.exists():
+            train_df = pd.read_csv(config.TRAIN_DATA)
+            val_df = pd.read_csv(config.VAL_DATA)
+            test_df = pd.read_csv(config.TEST_DATA)
+            return train_df, val_df, test_df
+        else:
+            raise ValueError("No existing processed data found and no new data to process!")
     
     try:
         # Import preprocessing logic
@@ -787,44 +859,59 @@ def send_notifications(
 
 
 # ============================================================================
-# MAIN FLOW
+# MAIN FLOW (INCREMENTAL)
 # ============================================================================
 
 @flow(
     name="PPP-Q-ML-Pipeline",
-    description="Complete ML pipeline: Data → Features → Train → Evaluate → Deploy",
+    description="INCREMENTAL ML pipeline: Fetch NEW data → Preprocess NEW rows → Retrain → Deploy",
     retries=0
 )
-def pppq_ml_pipeline():
+def pppq_ml_pipeline(force_full_retrain: bool = False):
     """
-    Main Prefect flow orchestrating the entire ML pipeline
+    Main Prefect flow - INCREMENTAL data pipeline
     
-    Runs every 15 days automatically
+    - Fetches ONLY new data since last run
+    - Appends to existing consolidated dataset
+    - Preprocesses only new rows
+    - Retrains model on all data
+    
+    Args:
+        force_full_retrain: If True, skips new data check and forces full training
+    
+    Runs every 15 days automatically via GitHub Actions
     """
     pipeline_start = datetime.now()
     
     logger.info("="*80)
     logger.info("╔" + "="*78 + "╗")
-    logger.info("║" + " "*20 + "PPP-Q ML PIPELINE STARTED".center(48) + " "*10 + "║")
+    logger.info("║" + " "*20 + "PPP-Q INCREMENTAL ML PIPELINE".center(48) + " "*10 + "║")
     logger.info("║" + f" Time: {pipeline_start.strftime('%Y-%m-%d %H:%M:%S')}".ljust(78) + "║")
     logger.info("╚" + "="*78 + "╝")
     logger.info("="*80)
     
     # Notify start
-    notifier.notify_pipeline_start("PPP-Q ML Pipeline")
+    notifier.notify_pipeline_start("PPP-Q ML Pipeline (Incremental)")
     
     try:
-        # TASK 1: Data Ingestion
-        df_raw, new_rows = fetch_new_data()
+        # TASK 1: INCREMENTAL Data Ingestion
+        df_raw, new_rows, df_new_only = fetch_new_data()
         
         # Check minimum data
-        if new_rows < config.MIN_DATA_SIZE and config.RAW_DATA_PATH.exists():
-            logger.warning(f"⚠️ Only {new_rows} new rows (threshold: {config.MIN_DATA_SIZE})")
+        if new_rows == 0 and not force_full_retrain:
+            logger.warning("⚠️ No new data found - skipping pipeline")
+            notifier.notify_pipeline_success(
+                "PPP-Q ML Pipeline",
+                {"Status": "No new data - pipeline skipped"}
+            )
+            return {"status": "skipped", "reason": "no_new_data"}
         
-        # TASK 2: Preprocessing
-        train_df, val_df, test_df = preprocess_data(df_raw)
+        logger.info(f"\n📊 New rows to process: {new_rows}")
         
-        # TASK 3: Model Training
+        # TASK 2: INCREMENTAL Preprocessing
+        train_df, val_df, test_df = preprocess_data(df_raw, new_rows, df_new_only)
+        
+        # TASK 3: Model Training (on ALL data)
         train_results = train_models(train_df, val_df, test_df)
         
         # TASK 4: Evaluation & Versioning
@@ -840,6 +927,7 @@ def pppq_ml_pipeline():
         logger.info("╔" + "="*78 + "╗")
         logger.info("║" + " "*20 + "PIPELINE COMPLETED SUCCESSFULLY ✅".center(48) + " "*10 + "║")
         logger.info("║" + f" Duration: {duration:.1f} seconds".ljust(78) + "║")
+        logger.info("║" + f" New Rows Added: {new_rows}".ljust(78) + "║")
         logger.info("║" + f" Best Model: {eval_results['best_model']} (F1: {eval_results['metrics']['macro_f1']:.4f})".ljust(78) + "║")
         logger.info("╚" + "="*78 + "╝")
         logger.info("="*80)
@@ -856,9 +944,9 @@ def pppq_ml_pipeline():
 # ENTRY POINTS
 # ============================================================================
 
-def run_pipeline():
+def run_pipeline(force_full_retrain: bool = False):
     """Run the pipeline (for manual execution)"""
-    return pppq_ml_pipeline()
+    return pppq_ml_pipeline(force_full_retrain=force_full_retrain)
 
 
 def schedule_pipeline():
