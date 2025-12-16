@@ -46,6 +46,12 @@ class GrowthPotential(str, Enum):
     LOW = "LOW"
     SATURATED = "SATURATED"
 
+class ModelType(str, Enum):
+    """Model type for predictions"""
+    LGBM = "lgbm"
+    XGB = "xgb"
+    ENSEMBLE = "ensemble"
+
 # ============================================================================
 # REQUEST SCHEMAS
 # ============================================================================
@@ -54,6 +60,7 @@ class PredictionInput(BaseModel):
     """Single asset prediction input"""
     asset: str = Field(..., description="Asset name (e.g., Bitcoin, Gold, SP500)")
     horizon_years: float = Field(5, ge=0.5, le=10, description="Investment horizon in years")
+    model_type: ModelType = Field(ModelType.ENSEMBLE, description="Model type: lgbm, xgb, or ensemble (default)")
     
     @validator('asset')
     def validate_asset(cls, v):
@@ -67,7 +74,8 @@ class PredictionInput(BaseModel):
         json_schema_extra = {
             "example": {
                 "asset": "Bitcoin",
-                "horizon_years": 5
+                "horizon_years": 5,
+                "model_type": "ensemble"
             }
         }
 

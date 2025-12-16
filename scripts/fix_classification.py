@@ -175,8 +175,8 @@ def main():
     print("Sample Classifications (Latest)")
     print("=" * 60)
     
-    assets = ['Bitcoin', 'Ethereum', 'Gold', 'Silver', 'SP500', 'NASDAQ', 
-              'Apple', 'Microsoft', 'Oil', 'TreasuryBond_ETF']
+    assets = ['Bitcoin', 'Ethereum', 'Gold','Gold_ETF','RealEstate_ETF', 'Silver', 'SP500', 'NASDAQ', 
+              'Apple', 'Microsoft', 'Oil', 'TreasuryBond_ETF', 'DowJones', 'JPMorgan','Litecoin']
     
     for asset in assets:
         asset_data = test_df[test_df['Asset'] == asset]

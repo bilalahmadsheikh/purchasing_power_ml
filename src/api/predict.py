@@ -29,13 +29,16 @@ logger = logging.getLogger(__name__)
 
 class ModelManager:
     """
-    Singleton for LightGBM model management
+    Singleton for LightGBM + XGBoost model management with Ensemble support
     
     Responsible for loading:
     - LightGBM trained model (lgbm_model.txt)
+    - XGBoost trained model (xgb_model.json)
     - Label encoder (label_encoder.pkl) - converts predictions to A/B/C/D
-    - Feature columns (feature_columns.json) - 80+ PPP-Q features
+    - Feature columns (feature_columns.json) - 17 PPP-Q features
     - Test data (pppq_test.csv) - historical asset metrics
+    
+    Supports prediction modes: 'lgbm', 'xgb', 'ensemble'
     """
     
     _instance = None
@@ -46,6 +49,7 @@ class ModelManager:
             cls._instance = super().__new__(cls)
             # Initialize model attributes
             cls._instance.lgbm_model = None
+            cls._instance.xgb_model = None
             cls._instance.label_encoder = None
             cls._instance.feature_columns = None
             cls._instance.test_data = None
@@ -94,6 +98,19 @@ class ModelManager:
             self.lgbm_model = lgb.Booster(model_str=model_str)
             logger.info("[OK] LightGBM model loaded")
             
+            # Load XGBoost model for ensemble
+            try:
+                import xgboost as xgb
+                if settings.XGB_MODEL_PATH.exists():
+                    logger.info(f"[INFO] Loading XGBoost model from {settings.XGB_MODEL_PATH}...")
+                    self.xgb_model = xgb.Booster()
+                    self.xgb_model.load_model(str(settings.XGB_MODEL_PATH))
+                    logger.info("[OK] XGBoost model loaded")
+                else:
+                    logger.warning(f"[WARN] XGBoost model not found: {settings.XGB_MODEL_PATH}")
+            except Exception as e:
+                logger.warning(f"[WARN] Could not load XGBoost model: {e}")
+            
             # Load label encoder (handle version mismatch gracefully)
             try:
                 if settings.LABEL_ENCODER_PATH.exists():
@@ -138,11 +155,23 @@ class ModelManager:
         finally:
             self._models_loaded = True
     
-    def get_model(self):
-        """Get loaded LightGBM model - lazy loads if needed"""
+    def get_model(self, model_type: str = 'lgbm'):
+        """Get loaded model - lazy loads if needed
+        
+        Args:
+            model_type: 'lgbm', 'xgb', or 'ensemble'
+        """
         if not self._models_loaded:
             self.load_models()
+        if model_type == 'xgb':
+            return self.xgb_model
         return self.lgbm_model
+    
+    def get_xgb_model(self):
+        """Get loaded XGBoost model - lazy loads if needed"""
+        if not self._models_loaded:
+            self.load_models()
+        return self.xgb_model
     
     def get_encoder(self):
         """Get label encoder for A/B/C/D conversion - lazy loads if needed"""
@@ -369,12 +398,12 @@ def prepare_features_with_horizon(row: pd.Series, horizon_years: float = 5) -> n
     return np.array(features).reshape(1, -1)
 
 # ============================================================================
-# PREDICTION
+# PREDICTION (with Ensemble Support)
 # ============================================================================
 
-def predict_asset_class(asset: str, horizon_years: float = 5) -> Tuple[str, float, np.ndarray]:
+def predict_asset_class(asset: str, horizon_years: float = 5, model_type: str = 'ensemble') -> Tuple[str, float, np.ndarray]:
     """
-    Predict PPP-Q asset classification using LightGBM model
+    Predict PPP-Q asset classification using LightGBM, XGBoost, or Ensemble
     
     The model makes predictions based on:
     - 7 PPP-Q scoring components
@@ -384,6 +413,7 @@ def predict_asset_class(asset: str, horizon_years: float = 5) -> Tuple[str, floa
     Args:
         asset: Asset name
         horizon_years: Investment horizon in years (affects feature scoring)
+        model_type: 'lgbm', 'xgb', or 'ensemble' (default: ensemble)
     
     Returns:
         Tuple of (predicted_class, confidence, probabilities)
@@ -391,11 +421,14 @@ def predict_asset_class(asset: str, horizon_years: float = 5) -> Tuple[str, floa
         confidence: Prediction confidence (0-1)
         probabilities: Array of probabilities for each class
     """
-    # Get model and encoder first - check if they exist
-    model = model_manager.get_model()
+    import xgboost as xgb
+    
+    # Get models and encoder
+    lgbm_model = model_manager.get_model('lgbm')
+    xgb_model = model_manager.get_xgb_model()
     encoder = model_manager.get_encoder()
     
-    if model is None or encoder is None:
+    if lgbm_model is None or encoder is None:
         logger.warning("Models not available - returning mock prediction")
         return "B_PARTIAL", 0.5, np.array([[0.25, 0.5, 0.2, 0.05]])
     
@@ -408,8 +441,24 @@ def predict_asset_class(asset: str, horizon_years: float = 5) -> Tuple[str, floa
     # Prepare horizon-adjusted features
     X = prepare_features_with_horizon(latest_row, horizon_years)
     
-    # Make prediction
-    probabilities = model.predict(X)
+    # Make prediction based on model_type
+    if model_type == 'lgbm' or xgb_model is None:
+        # LightGBM only
+        probabilities = lgbm_model.predict(X)
+        logger.info(f"Using LightGBM model for {asset}")
+    elif model_type == 'xgb':
+        # XGBoost only
+        dmatrix = xgb.DMatrix(X)
+        probabilities = xgb_model.predict(dmatrix)
+        logger.info(f"Using XGBoost model for {asset}")
+    else:
+        # Ensemble: average LightGBM + XGBoost probabilities
+        lgbm_proba = lgbm_model.predict(X)
+        dmatrix = xgb.DMatrix(X)
+        xgb_proba = xgb_model.predict(dmatrix)
+        probabilities = (lgbm_proba + xgb_proba) / 2
+        logger.info(f"Using Ensemble (LightGBM + XGBoost) for {asset}")
+    
     pred_class_idx = np.argmax(probabilities, axis=1)[0]
     pred_class = encoder.classes_[pred_class_idx]
     confidence = probabilities[0][pred_class_idx]
@@ -758,31 +807,31 @@ def calculate_component_scores(latest: pd.Series, horizon_years: float = 5) -> P
     
     return PPPQComponentScores(
         real_purchasing_power_score=round(pp_score, 1),
-        real_purchasing_power_weight=0.25,
+        real_purchasing_power_weight=round(weights[0], 2),
         real_purchasing_power_analysis=pp_analysis,
         
         volatility_risk_score=round(vol_score, 1),
-        volatility_risk_weight=0.20,
+        volatility_risk_weight=round(weights[1], 2),
         volatility_risk_analysis=vol_analysis,
         
         market_cycle_score=round(cycle_score, 1),
-        market_cycle_weight=0.15,
+        market_cycle_weight=round(weights[2], 2),
         market_cycle_analysis=cycle_analysis,
         
         growth_potential_score=round(growth_score, 1),
-        growth_potential_weight=0.15,
+        growth_potential_weight=round(weights[3], 2),
         growth_potential_analysis=growth_analysis,
         
         consistency_score=round(cons_score, 1),
-        consistency_weight=0.10,
+        consistency_weight=round(weights[4], 2),
         consistency_analysis=cons_analysis,
         
         recovery_score=round(recovery_score, 1),
-        recovery_weight=0.10,
+        recovery_weight=round(weights[5], 2),
         recovery_analysis=dd_analysis,
         
         risk_adjusted_score=round(risk_adj_score, 1),
-        risk_adjusted_weight=0.05,
+        risk_adjusted_weight=round(weights[6], 2),
         risk_adjusted_analysis=risk_adj_analysis,
         
         final_composite_score=round(final_score, 1)
@@ -1060,14 +1109,14 @@ def generate_pppq_insights(asset: str, pred_class: str, confidence: float, proba
 # Cache for predictions to improve response times
 # Cache size: 128 predictions, TTL via Python's lru_cache (cleared on restart)
 @lru_cache(maxsize=128)
-def _predict_cached(asset: str, horizon_years: float) -> PredictionOutput:
+def _predict_cached(asset: str, horizon_years: float, model_type: str = 'ensemble') -> PredictionOutput:
     """
     Cached prediction function
     Wraps predict() with memoization for identical requests
     """
-    return _predict_uncached(asset, horizon_years)
+    return _predict_uncached(asset, horizon_years, model_type)
 
-def predict(asset: str, horizon_years: float = 5) -> PredictionOutput:
+def predict(asset: str, horizon_years: float = 5, model_type: str = 'ensemble') -> PredictionOutput:
     """
     Main PPP-Q prediction function with caching
     
@@ -1080,14 +1129,15 @@ def predict(asset: str, horizon_years: float = 5) -> PredictionOutput:
     Args:
         asset: Asset name (available in settings.AVAILABLE_ASSETS)
         horizon_years: Investment horizon in years (0.5 to 10 years)
+        model_type: 'lgbm', 'xgb', or 'ensemble' (default)
     
     Returns:
         PredictionOutput with PPP-Q classification (A/B/C/D),
         confidence, metrics, and actionable insights
     """
-    return _predict_cached(asset, horizon_years)
+    return _predict_cached(asset, horizon_years, model_type)
 
-def _predict_uncached(asset: str, horizon_years: float = 5) -> PredictionOutput:
+def _predict_uncached(asset: str, horizon_years: float = 5, model_type: str = 'ensemble') -> PredictionOutput:
     """
     Uncached prediction logic (for testing or cache bypass)
     
@@ -1111,10 +1161,34 @@ def _predict_uncached(asset: str, horizon_years: float = 5) -> PredictionOutput:
     Args:
         asset: Asset name (available in settings.AVAILABLE_ASSETS)
         horizon_years: Investment horizon in years (0.5 to 10 years)
+        model_type: 'lgbm', 'xgb', or 'ensemble' (default)
     
     Returns:
         PredictionOutput with PPP-Q classification (A/B/C/D),
         confidence, metrics, and actionable insights
     """
-    pred_class, confidence, probabilities = predict_asset_class(asset, horizon_years)
+    # Get ML model prediction (with selected model type)
+    ml_pred_class, ml_confidence, probabilities = predict_asset_class(asset, horizon_years, model_type)
+    
+    # Calculate composite score for threshold-based classification
+    window_data = load_asset_data_window(asset, horizon_years)
+    latest = window_data.iloc[-1]
+    component_scores = calculate_component_scores(latest, horizon_years)
+    composite_score = component_scores.final_composite_score
+    
+    # Use composite score thresholds for final class (A≥65, B≥55, C≥42, D<42)
+    if composite_score >= 65:
+        threshold_class = "A_PRESERVER"
+    elif composite_score >= 55:
+        threshold_class = "B_PARTIAL"
+    elif composite_score >= 42:
+        threshold_class = "C_ERODER"
+    else:
+        threshold_class = "D_DESTROYER"
+    
+    # Use threshold-based class as primary, ML confidence as secondary
+    # This ensures classifications match the composite score thresholds exactly
+    pred_class = threshold_class
+    confidence = ml_confidence if ml_pred_class == threshold_class else 0.85
+    
     return generate_pppq_insights(asset, pred_class, confidence, probabilities, horizon_years)

@@ -104,11 +104,16 @@ def predict_endpoint(input_data: PredictionInput):
     """
     Single asset prediction
     
-    Returns classification, confidence, entry signal, and actionable insights
+    Returns classification, confidence, entry signal, and actionable insights.
+    
+    Model types:
+    - lgbm: LightGBM only (fastest)
+    - xgb: XGBoost only
+    - ensemble: Average of LightGBM + XGBoost (most robust, default)
     """
     try:
-        logger.info(f"Prediction request for {input_data.asset} ({input_data.horizon_years}Y horizon)")
-        result = predict_asset(input_data.asset, input_data.horizon_years)
+        logger.info(f"Prediction request for {input_data.asset} ({input_data.horizon_years}Y horizon, model={input_data.model_type.value})")
+        result = predict_asset(input_data.asset, input_data.horizon_years, input_data.model_type.value)
         logger.info(f"Prediction successful: {result.predicted_class}")
         return result
     except ValueError as e:
