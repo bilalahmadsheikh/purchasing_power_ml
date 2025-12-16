@@ -1,0 +1,69 @@
+{
+  "preprocessing_date": "2025-12-15 04:09:51",
+  "system_name": "PPP-Q Classification",
+  "purpose": "Long-horizon economic classifier measuring purchasing power survival",
+  "output_classes": {
+    "A": "PURCHASING_POWER_PRESERVER",
+    "B": "PARTIAL_PRESERVER",
+    "C": "PURCHASING_POWER_ERODER",
+    "D": "PURCHASING_POWER_DESTROYER"
+  },
+  "dimensions": {
+    "dimension_1": {
+      "name": "Real Return Sustainability",
+      "features": 35
+    },
+    "dimension_2": {
+      "name": "Consumption PP",
+      "features": 5
+    },
+    "dimension_3": {
+      "name": "Drawdown & Recovery",
+      "features": 5
+    },
+    "dimension_4": {
+      "name": "Volatility & Risk-Adjusted",
+      "features": 4
+    },
+    "dimension_5": {
+      "name": "Regime-Specific Behavior",
+      "features": 4
+    }
+  },
+  "total_features": 94,
+  "assets_classified": 15,
+  "splits": {
+    "train": {
+      "rows": 65745,
+      "date_range": "2010-01-01 00:00:00 to 2021-12-31 00:00:00",
+      "class_distribution": {
+        "B_PARTIAL": 26762,
+        "A_PRESERVER": 25074,
+        "C_ERODER": 9946,
+        "D_DESTROYER": 3963
+      }
+    },
+    "validation": {
+      "rows": 10950,
+      "date_range": "2022-01-01 00:00:00 to 2023-12-31 00:00:00",
+      "class_distribution": {
+        "A_PRESERVER": 9578,
+        "B_PARTIAL": 1372
+      }
+    },
+    "test": {
+      "rows": 10695,
+      "date_range": "2024-01-01 00:00:00 to 2025-12-13 00:00:00",
+      "class_distribution": {
+        "A_PRESERVER": 9645,
+        "B_PARTIAL": 1050
+      }
+    }
+  },
+  "class_balance": {
+    "A_PRESERVER": "38.1%",
+    "B_PARTIAL": "40.7%",
+    "C_ERODER": "15.1%",
+    "D_DESTROYER": "6.0%"
+  }
+}

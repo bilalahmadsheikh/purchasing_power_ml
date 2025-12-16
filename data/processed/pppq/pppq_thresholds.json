@@ -1,0 +1,31 @@
+{
+  "A_PRESERVER": {
+    "real_return_5y_min": 100.0,
+    "pp_multiplier_5y_min": 2.0,
+    "max_drawdown_max": 10.0,
+    "stability_min": 0.9,
+    "sharpe_ratio_min": 0.5
+  },
+  "B_PARTIAL": {
+    "real_return_5y_min": 30.0,
+    "real_return_5y_max": 100.0,
+    "pp_multiplier_5y_min": 1.4,
+    "pp_multiplier_5y_max": 2.0,
+    "max_drawdown_max": 30.0,
+    "stability_min": 0.7
+  },
+  "C_ERODER": {
+    "real_return_5y_min": -5.0,
+    "real_return_5y_max": 30.0,
+    "pp_multiplier_5y_min": 0.95,
+    "pp_multiplier_5y_max": 1.4,
+    "max_drawdown_max": 50.0,
+    "volatility_max": 40.0
+  },
+  "D_DESTROYER": {
+    "real_return_5y_max": -5.0,
+    "pp_multiplier_5y_max": 0.95,
+    "max_drawdown_min": 50.0,
+    "volatility_min": 60.0
+  }
+}

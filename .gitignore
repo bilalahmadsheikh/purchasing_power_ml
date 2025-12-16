@@ -56,19 +56,20 @@ venv.bak/
 .jupyter
 
 # ============================================================================
-# Data Files (Keep raw, ignore processed/models for now)
+# Data Files - Tracked with Git LFS
 # ============================================================================
-data/processed/
 *.pkl
 *.joblib
 *.json
 !feature_columns.json
 !training_summary.json
+!pppq_features.json
+!pppq_summary.json
+!pppq_thresholds.json
+!model_registry.json
 
-# Large data files
-*.csv
-!requirements.txt
-data/**/*.csv
+# Allow CSV files (tracked with Git LFS)
+# data/**/*.csv - NOW TRACKED WITH GIT LFS
 
 # Model files needed for tests - exceptions for required models
 !models/pppq/
