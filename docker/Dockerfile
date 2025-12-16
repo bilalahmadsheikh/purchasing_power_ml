@@ -16,10 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Copy and install requirements
-COPY requirements.txt .
+# Copy and install requirements (production minimal)
+COPY requirements-prod.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements-prod.txt
 
 # Create directory structure (ensures dirs exist even if COPY sources don't)
 RUN mkdir -p /app/models/pppq /app/data/processed/pppq/train /app/data/processed/pppq/test /app/data/processed/pppq/val /app/logs

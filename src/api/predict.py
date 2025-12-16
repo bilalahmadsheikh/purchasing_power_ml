@@ -94,28 +94,39 @@ class ModelManager:
             self.lgbm_model = lgb.Booster(model_str=model_str)
             logger.info("[OK] LightGBM model loaded")
             
-            # Load label encoder
-            if settings.LABEL_ENCODER_PATH.exists():
-                with open(settings.LABEL_ENCODER_PATH, "rb") as f:
-                    self.label_encoder = pickle.load(f)
-                logger.info("[OK] Label encoder loaded")
-            else:
-                logger.warning(f"[WARN] Label encoder not found: {settings.LABEL_ENCODER_PATH}")
+            # Load label encoder (handle version mismatch gracefully)
+            try:
+                if settings.LABEL_ENCODER_PATH.exists():
+                    with open(settings.LABEL_ENCODER_PATH, "rb") as f:
+                        self.label_encoder = pickle.load(f)
+                    logger.info("[OK] Label encoder loaded")
+                else:
+                    logger.warning(f"[WARN] Label encoder not found: {settings.LABEL_ENCODER_PATH}")
+            except Exception as e:
+                logger.warning(f"[WARN] Could not load label encoder (version mismatch?): {e}")
+                # Create a simple label encoder as fallback
+                self.label_encoder = None
             
             # Load feature columns
-            if settings.FEATURE_COLUMNS_PATH.exists():
-                with open(settings.FEATURE_COLUMNS_PATH, "r") as f:
-                    self.feature_columns = json.load(f)
-                logger.info(f"[OK] Feature columns loaded ({len(self.feature_columns)} features)")
-            else:
-                logger.warning(f"[WARN] Feature columns not found: {settings.FEATURE_COLUMNS_PATH}")
+            try:
+                if settings.FEATURE_COLUMNS_PATH.exists():
+                    with open(settings.FEATURE_COLUMNS_PATH, "r") as f:
+                        self.feature_columns = json.load(f)
+                    logger.info(f"[OK] Feature columns loaded ({len(self.feature_columns)} features)")
+                else:
+                    logger.warning(f"[WARN] Feature columns not found: {settings.FEATURE_COLUMNS_PATH}")
+            except Exception as e:
+                logger.warning(f"[WARN] Could not load feature columns: {e}")
             
             # Load test data for predictions
-            if settings.TEST_DATA_PATH.exists():
-                self.test_data = pd.read_csv(settings.TEST_DATA_PATH)
-                logger.info(f"[OK] Test data loaded ({len(self.test_data)} rows)")
-            else:
-                logger.warning(f"[WARN] Test data not found: {settings.TEST_DATA_PATH}")
+            try:
+                if settings.TEST_DATA_PATH.exists():
+                    self.test_data = pd.read_csv(settings.TEST_DATA_PATH)
+                    logger.info(f"[OK] Test data loaded ({len(self.test_data)} rows)")
+                else:
+                    logger.warning(f"[WARN] Test data not found: {settings.TEST_DATA_PATH}")
+            except Exception as e:
+                logger.warning(f"[WARN] Could not load test data: {e}")
             
         except Exception as e:
             logger.warning(f"[WARN] Could not load models: {e}")
