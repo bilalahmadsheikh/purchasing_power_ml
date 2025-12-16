@@ -441,20 +441,23 @@ def predict_asset_class(asset: str, horizon_years: float = 5, model_type: str = 
     # Prepare horizon-adjusted features
     X = prepare_features_with_horizon(latest_row, horizon_years)
     
+    # Get feature names for XGBoost
+    feature_names = model_manager.get_features()
+    
     # Make prediction based on model_type
     if model_type == 'lgbm' or xgb_model is None:
         # LightGBM only
         probabilities = lgbm_model.predict(X)
         logger.info(f"Using LightGBM model for {asset}")
     elif model_type == 'xgb':
-        # XGBoost only
-        dmatrix = xgb.DMatrix(X)
+        # XGBoost only - include feature names
+        dmatrix = xgb.DMatrix(X, feature_names=feature_names)
         probabilities = xgb_model.predict(dmatrix)
         logger.info(f"Using XGBoost model for {asset}")
     else:
         # Ensemble: average LightGBM + XGBoost probabilities
         lgbm_proba = lgbm_model.predict(X)
-        dmatrix = xgb.DMatrix(X)
+        dmatrix = xgb.DMatrix(X, feature_names=feature_names)
         xgb_proba = xgb_model.predict(dmatrix)
         probabilities = (lgbm_proba + xgb_proba) / 2
         logger.info(f"Using Ensemble (LightGBM + XGBoost) for {asset}")
