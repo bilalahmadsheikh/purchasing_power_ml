@@ -787,11 +787,30 @@ def calculate_real_commodity_comparison(latest: pd.Series, asset: str) -> RealCo
     """
     Calculate ACTUAL purchasing power in eggs and milk
     This is the REAL measure - not CPI nonsense
+    
+    For assets without direct egg/milk data, we estimate based on:
+    - The asset's real return (PP_Multiplier_1Y - 1) * 100
+    - Adjusted for typical egg/milk inflation (~15-25% in 2024)
     """
     
-    # Get egg/milk returns
-    eggs_return_1y = latest.get(f'{asset}_Real_Return_Eggs_1Y', latest.get('Real_Return_Eggs_1Y', 0))
-    milk_return_1y = latest.get(f'{asset}_Real_Return_Milk_1Y', latest.get('Real_Return_Milk_1Y', 0))
+    # Get egg/milk returns from data
+    eggs_return_1y = latest.get('Real_Return_Eggs_1Y', 0)
+    milk_return_1y = latest.get('Real_Return_Milk_1Y', 0)
+    
+    # If no real data (returns are 0), estimate from asset's performance
+    if eggs_return_1y == 0 and milk_return_1y == 0:
+        # Get the asset's 1Y real return
+        pp_mult_1y = latest.get('PP_Multiplier_1Y', 1.0)
+        real_return_1y = (pp_mult_1y - 1) * 100  # Convert to percentage
+        
+        # Typical commodity inflation rates (eggs rose ~25%, milk ~8% in recent years)
+        eggs_inflation_1y = 25.0  # Eggs have been volatile
+        milk_inflation_1y = 8.0   # Milk more stable
+        
+        # Real return vs eggs/milk = asset return - commodity inflation
+        # If asset returned 50% and eggs went up 25%, you can buy 25% more eggs
+        eggs_return_1y = real_return_1y - eggs_inflation_1y
+        milk_return_1y = real_return_1y - milk_inflation_1y
     
     # Estimate current purchasing power (hypothetical $10,000 investment)
     investment_amount = 10000
@@ -802,10 +821,10 @@ def calculate_real_commodity_comparison(latest: pd.Series, asset: str) -> RealCo
     
     # Calculate purchasing power
     eggs_current = investment_amount / eggs_price
-    eggs_1y_ago = eggs_current / (1 + eggs_return_1y / 100)
+    eggs_1y_ago = eggs_current / (1 + eggs_return_1y / 100) if eggs_return_1y != -100 else eggs_current
     
     milk_current = investment_amount / milk_price
-    milk_1y_ago = milk_current / (1 + milk_return_1y / 100)
+    milk_1y_ago = milk_current / (1 + milk_return_1y / 100) if milk_return_1y != -100 else milk_current
     
     # Interpretations
     if eggs_return_1y > 30:
