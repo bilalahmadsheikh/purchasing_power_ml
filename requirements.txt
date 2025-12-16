@@ -13,6 +13,18 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 httpx==0.25.0
 
+# Pipeline Orchestration (Prefect)
+prefect>=2.14.0
+schedule>=1.2.0
+
+# Model Versioning
+mlflow>=2.0.0
+
+# Data Collection
+yfinance>=0.2.36
+pandas-datareader>=0.10.0
+fredapi>=0.5.1
+
 # Visualization (optional for production API)
 # matplotlib==3.7.2
 # seaborn==0.12.2
