@@ -6,7 +6,34 @@ This file tracks all model versions, performance changes, and significant update
 
 ## Model Version History
 
-### v1.1.0 - 2024-12-16 (Balanced Classification)
+### v1.2.0 - 2025-12-16 (Ensemble Model Support)
+**Best Model:** Ensemble (LightGBM + XGBoost)  
+**Macro F1:** ~90.35% (averaged)  
+**Features:** 17 PPP-Q features
+
+#### New Features:
+- **Ensemble Model Support** - Average of LightGBM + XGBoost probabilities
+- **Model Type Selection** - API now supports `lgbm`, `xgb`, or `ensemble` (default)
+- **Dynamic Weights** - Component weights adjust based on investment horizon
+- **Threshold-Based Classification** - Final class based on composite score thresholds
+
+#### Model Types Available:
+| Type | Description | Speed | Robustness |
+|------|-------------|-------|------------|
+| `lgbm` | LightGBM only | Fastest | Good |
+| `xgb` | XGBoost only | Fast | Good |
+| `ensemble` | Average of both | Moderate | Best (default) |
+
+#### Dynamic Weight System:
+| Horizon | PP Score | Volatility | Cycle | Growth | Consistency | Recovery | Risk-Adj |
+|---------|----------|------------|-------|--------|-------------|----------|----------|
+| <2Y | 25% | 25% | 20% | 10% | 10% | 10% | 0% |
+| 2-5Y | 25% | 20% | 15% | 15% | 10% | 10% | 5% |
+| 5Y+ | 20% | 15% | 10% | 20% | 10% | 15% | 10% |
+
+---
+
+### v1.1.0 - 2025-12-16 (Balanced Classification)
 **Best Model:** LightGBM  
 **Macro F1:** 90.28%  
 **Training Data:** 2010-01-01 to 2021-12-31  
@@ -47,7 +74,27 @@ This file tracks all model versions, performance changes, and significant update
 
 ## Update Log
 
-### 2024-12-16 - Feature Engineering Fix
+### 2025-12-16 - Ensemble Model Support
+**Feature:** Added ensemble model combining LightGBM + XGBoost  
+**Implementation:** Average probabilities from both models  
+**API Change:** New `model_type` parameter: `lgbm`, `xgb`, `ensemble` (default)  
+**Files Changed:** `src/api/predict.py`, `src/api/main.py`, `src/api/schemas.py`  
+**Impact:** More robust predictions with ensemble averaging
+
+### 2025-12-16 - Dynamic Weight System
+**Feature:** Component weights now adjust based on investment horizon  
+**Short-term (<2Y):** Emphasizes stability (25% volatility, 20% cycle)  
+**Long-term (5Y+):** Emphasizes growth (20% growth, 15% recovery)  
+**Files Changed:** `src/api/predict.py`  
+**Impact:** More accurate predictions for different investment timeframes
+
+### 2025-12-16 - Threshold-Based Classification
+**Feature:** Classification now uses composite score thresholds directly  
+**Thresholds:** A≥65, B≥55, C≥42, D<42  
+**Files Changed:** `src/api/predict.py`  
+**Impact:** Classifications exactly match composite scores
+
+### 2025-12-16 - Feature Engineering Fix
 **Issue:** Incremental data updates were causing NaN/0 values for rolling features  
 **Root Cause:** Feature engineering was applied only to new rows without historical context  
 **Solution:** Combined raw data first, then applied feature engineering to full dataset  
@@ -66,7 +113,9 @@ This file tracks all model versions, performance changes, and significant update
 
 | Date | Version | Model | Macro F1 | Deployed | Notes |
 |------|---------|-------|----------|----------|-------|
-| 2024-12-16 | v1.0.0 | XGBoost | 97.10% | Yes | Initial production deployment |
+| 2025-12-16 | v1.2.0 | Ensemble | ~90.35% | Yes | Ensemble + dynamic weights |
+| 2025-12-16 | v1.1.0 | LightGBM | 90.28% | Yes | Balanced classification |
+| 2025-12-16 | v1.0.0 | XGBoost | 97.10% | Yes | Initial production deployment |
 
 ---
 
@@ -87,7 +136,7 @@ This file tracks all model versions, performance changes, and significant update
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    PPP-Q Classification                      │
+│                    PPP-Q Classification v1.2                 │
 ├─────────────────────────────────────────────────────────────┤
 │  Data Pipeline                                               │
 │  ├── Data Ingestion (FRED, Yahoo Finance)                   │
@@ -95,16 +144,20 @@ This file tracks all model versions, performance changes, and significant update
 │  └── Train/Val/Test Split (temporal, no leakage)            │
 ├─────────────────────────────────────────────────────────────┤
 │  Model Ensemble                                              │
-│  ├── LightGBM (primary)                                     │
-│  ├── XGBoost (best performer)                               │
-│  ├── Random Forest (baseline)                               │
-│  └── Weighted Ensemble (0.4/0.4/0.2)                        │
+│  ├── LightGBM (90.28% F1)                                   │
+│  ├── XGBoost (89.44% F1)                                    │
+│  └── Ensemble = (LightGBM + XGBoost) / 2                    │
 ├─────────────────────────────────────────────────────────────┤
-│  Output Classes                                              │
-│  ├── A_PRESERVER (PP Multiplier > 1.5)                      │
-│  ├── B_PARTIAL (PP Multiplier 1.0-1.5)                      │
-│  ├── C_ERODER (PP Multiplier 0.7-1.0)                       │
-│  └── D_DESTROYER (PP Multiplier < 0.7)                      │
+│  Classification (Composite Score Thresholds)                 │
+│  ├── A_PRESERVER (Score ≥ 65)                               │
+│  ├── B_PARTIAL (Score 55-64)                                │
+│  ├── C_ERODER (Score 42-54)                                 │
+│  └── D_DESTROYER (Score < 42)                               │
+├─────────────────────────────────────────────────────────────┤
+│  API Endpoints                                               │
+│  ├── POST /predict (single asset)                           │
+│  ├── POST /predict/batch (multiple assets)                  │
+│  └── model_type: lgbm | xgb | ensemble                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
