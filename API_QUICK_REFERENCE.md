@@ -1,23 +1,54 @@
 # PPP-Q API Quick Reference
 
+## v1.2.0 Updates
+- **Ensemble Model Support** - New `model_type` parameter: `lgbm`, `xgb`, `ensemble` (default)
+- **Dynamic Weights** - Component weights adjust based on investment horizon
+- **Threshold-Based Classification** - A≥65, B≥55, C≥42, D<42
+
 ## Running the API
 
 ```bash
-cd c:\Users\bilaa\OneDrive\Desktop\purchasing_power_ml
-python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+cd c:\Users\bilaa\OneDrive\Desktop\ML\purchasing_power_ml
+python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8001
 ```
 
-API will be available at: `http://localhost:8000`
-Interactive docs: `http://localhost:8000/docs`
+API will be available at: `http://localhost:8001`
+Interactive docs: `http://localhost:8001/docs`
 
 ---
 
 ## Quick Examples
 
-### 1. Compare Multiple Assets
+### 1. Single Prediction (with Model Type)
 
 ```bash
-curl -X POST "http://localhost:8000/compare" \
+curl -X POST "http://localhost:8001/predict" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "asset": "Bitcoin",
+    "horizon_years": 5,
+    "model_type": "ensemble"
+  }'
+```
+
+**PowerShell:**
+```powershell
+$body = @{
+    asset = "Bitcoin"
+    horizon_years = 5
+    model_type = "ensemble"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://localhost:8001/predict" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+### 2. Compare Multiple Assets
+
+```bash
+curl -X POST "http://localhost:8001/compare" \
   -H "Content-Type: application/json" \
   -d '{
     "assets": ["Bitcoin", "Gold", "SP500"],
@@ -32,10 +63,10 @@ $body = @{
     horizon_years = 5
 } | ConvertTo-Json
 
-Invoke-WebRequest -Uri "http://localhost:8000/compare" `
+Invoke-RestMethod -Uri "http://localhost:8001/compare" `
   -Method Post `
   -ContentType "application/json" `
-  -Body $body | Select-Object -ExpandProperty Content
+  -Body $body
 ```
 
 ### 2. Get Historical Data
@@ -46,34 +77,52 @@ curl "http://localhost:8000/asset/historical/Bitcoin?horizon_years=5&limit=50"
 
 **PowerShell:**
 ```powershell
-Invoke-WebRequest -Uri "http://localhost:8000/asset/historical/Bitcoin?horizon_years=5&limit=50" | `
-  Select-Object -ExpandProperty Content | ConvertFrom-Json | Format-Table
+Invoke-RestMethod -Uri "http://localhost:8001/asset/historical/Bitcoin?horizon_years=5&limit=50"
 ```
 
-### 3. Check Data Quality
+### 4. Check Data Quality
 
 ```bash
-curl "http://localhost:8000/data/quality/Bitcoin"
+curl "http://localhost:8001/data/quality/Bitcoin"
 ```
 
 **PowerShell:**
 ```powershell
-Invoke-WebRequest -Uri "http://localhost:8000/data/quality/Bitcoin" | `
-  Select-Object -ExpandProperty Content | ConvertFrom-Json
+Invoke-RestMethod -Uri "http://localhost:8001/data/quality/Bitcoin"
 ```
 
-### 4. Single Asset Prediction (with caching benefit)
+### 5. Test Different Model Types
 
-```bash
-curl -X POST "http://localhost:8000/predict" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "asset": "Bitcoin",
-    "horizon_years": 5
-  }'
+```powershell
+# LightGBM only (fastest)
+Invoke-RestMethod -Uri "http://localhost:8001/predict" -Method Post -ContentType "application/json" -Body '{"asset": "Bitcoin", "horizon_years": 5, "model_type": "lgbm"}'
+
+# XGBoost only
+Invoke-RestMethod -Uri "http://localhost:8001/predict" -Method Post -ContentType "application/json" -Body '{"asset": "Bitcoin", "horizon_years": 5, "model_type": "xgb"}'
+
+# Ensemble (default, most robust)
+Invoke-RestMethod -Uri "http://localhost:8001/predict" -Method Post -ContentType "application/json" -Body '{"asset": "Bitcoin", "horizon_years": 5, "model_type": "ensemble"}'
 ```
 
-Call this twice - the second time will be 20-30x faster due to caching!
+---
+
+## Model Types
+
+| Type | Description | F1 Score | Speed |
+|------|-------------|----------|-------|
+| `ensemble` | LightGBM + XGBoost average | ~90.35% | Moderate |
+| `lgbm` | LightGBM only | 90.28% | Fastest |
+| `xgb` | XGBoost only | 89.44% | Fast |
+
+---
+
+## Dynamic Weights by Horizon
+
+| Horizon | PP Score | Volatility | Cycle | Growth | Consistency | Recovery | Risk-Adj |
+|---------|----------|------------|-------|--------|-------------|----------|----------|
+| <2Y | 25% | 25% | 20% | 10% | 10% | 10% | 0% |
+| 2-5Y | 25% | 20% | 15% | 15% | 10% | 10% | 5% |
+| 5Y+ | 20% | 15% | 10% | 20% | 10% | 15% | 10% |
 
 ---
 
@@ -98,15 +147,26 @@ python -m pytest tests/test_new_endpoints.py::test_compare_assets -v
 
 ## API Endpoints Summary
 
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| POST | `/predict` | Single asset prediction | ✅ |
+| Method | Endpoint | Purpose | Model Type Support |
+|--------|----------|---------|-------------------|
+| POST | `/predict` | Single asset prediction | ✅ lgbm/xgb/ensemble |
 | POST | `/predict/batch` | Multiple predictions | ✅ |
-| GET | `/assets` | List available assets | ✅ |
-| GET | `/model/info` | Model metadata | ✅ |
-| POST | `/compare` | Compare multiple assets | ✅ NEW |
-| GET | `/asset/historical/{asset}` | Historical data | ✅ NEW |
-| GET | `/data/quality/{asset}` | Data quality check | ✅ NEW |
+| GET | `/assets` | List available assets | N/A |
+| GET | `/model/info` | Model metadata | N/A |
+| POST | `/compare` | Compare multiple assets | ✅ |
+| GET | `/asset/historical/{asset}` | Historical data | N/A |
+| GET | `/data/quality/{asset}` | Data quality check | N/A |
+
+---
+
+## Classification Thresholds
+
+| Class | Score | Description |
+|-------|-------|-------------|
+| **A_PRESERVER** | ≥ 65 | Strong PP preservation + growth |
+| **B_PARTIAL** | 55-64 | Adequate PP preservation |
+| **C_ERODER** | 42-54 | Marginal, may lose to inflation |
+| **D_DESTROYER** | < 42 | Significant PP destruction |
 
 ---
 
@@ -182,18 +242,24 @@ Apple, Microsoft, JPMorgan
 - Remove duplicates automatically
 
 **API not responding:**
-- Check server is running: `python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000`
-- Check port 8000 is available
+- Check server is running: `python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8001`
+- Check port 8001 is available
 - Check firewall allows connections
 
 ---
 
-## Development Notes
+## v1.2.0 Changes
+
+**New Features:**
+- Ensemble model support (LightGBM + XGBoost)
+- `model_type` parameter: `lgbm`, `xgb`, `ensemble`
+- Dynamic component weights based on horizon
+- Threshold-based classification (A≥65, B≥55, C≥42, D<42)
 
 **Key Files Modified:**
-- `src/api/main.py` - Added 3 new endpoints
-- `src/api/schemas.py` - Added `ComparisonRequest` schema
-- `src/api/predict.py` - Added caching via `@lru_cache`
+- `src/api/main.py` - Added model_type support
+- `src/api/schemas.py` - Added `ModelType` enum
+- `src/api/predict.py` - Added ensemble predictions, dynamic weights
 - `tests/test_new_endpoints.py` - Added 8 new tests
 
 **All Tests Passing:**

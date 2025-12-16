@@ -1,12 +1,35 @@
 # Implementation Summary: PPP-Q API Production Enhancements
 
-## Project Status: ✅ COMPLETE
+## Project Status: ✅ COMPLETE (v1.2.0)
 
 All requested improvements successfully implemented and tested.
 
 ---
 
-## What Was Added
+## v1.2.0 New Features
+
+### 1. Ensemble Model Support ✅
+- **Models:** LightGBM (90.28% F1) + XGBoost (89.44% F1)
+- **Ensemble:** Average probabilities (~90.35% F1)
+- **Parameter:** `model_type`: `lgbm`, `xgb`, `ensemble` (default)
+- **Implementation:** Parallel predictions from both models
+
+### 2. Dynamic Weight System ✅
+- **Short-term (<2Y):** Emphasizes stability (25% volatility, 20% cycle)
+- **Medium-term (2-5Y):** Balanced approach
+- **Long-term (5Y+):** Emphasizes growth (20% growth, 15% recovery)
+- **Weights displayed in API response**
+
+### 3. Threshold-Based Classification ✅
+- **A_PRESERVER:** Score ≥ 65
+- **B_PARTIAL:** Score 55-64
+- **C_ERODER:** Score 42-54
+- **D_DESTROYER:** Score < 42
+- **Deterministic:** Same score = same class always
+
+---
+
+## Previous Features (v1.1.0)
 
 ### 1. Asset Comparison Endpoint ✅
 - **Endpoint:** `POST /compare`
@@ -84,47 +107,46 @@ python -m pytest tests/ -v
 
 ## Files Modified
 
-### Core API Files
+### v1.2.0 Changes
+1. **src/api/predict.py**
+   - Added XGBoost model loading in ModelManager
+   - Implemented ensemble prediction (LightGBM + XGBoost average)
+   - Added `model_type` parameter support
+   - Dynamic weight calculation based on horizon
+   - Threshold-based classification logic
+
+2. **src/api/main.py**
+   - Added `model_type` parameter to `/predict` endpoint
+   - Updated logging with model type info
+
+3. **src/api/schemas.py**
+   - Added `ModelType` enum: `lgbm`, `xgb`, `ensemble`
+   - Added `model_type` field to `PredictionInput`
+
+4. **MODEL_CHANGELOG.md**
+   - Updated with v1.2.0 release notes
+   - Added dynamic weights documentation
+   - Updated architecture diagram
+
+### v1.1.0 Changes (Previous)
 1. **src/api/main.py**
    - Added `/compare` endpoint (40 lines)
    - Added `/asset/historical/{asset}` endpoint (50 lines)
    - Added `/data/quality/{asset}` endpoint (30 lines)
-   - Imported new `ComparisonRequest` schema
 
 2. **src/api/predict.py**
-   - Added `@lru_cache` import
-   - Implemented `_predict_cached()` wrapper function
-   - Wrapped existing `predict()` with caching
-   - Created `_predict_uncached()` for original logic
-   - Total: ~20 lines of caching infrastructure
+   - Added `@lru_cache` for caching
+   - Implemented threshold-based classification
 
 3. **src/api/schemas.py**
-   - Added `ComparisonRequest` model (30 lines)
-   - Validation: 2-10 assets, deduplication
-   - Error messages: Clear and actionable
+   - Added `ComparisonRequest` model
 
 4. **tests/test_new_endpoints.py** (NEW)
    - 8 comprehensive test cases
-   - Covers success paths and error conditions
-   - Tests caching performance improvement
-   - ~150 lines of test code
-
-### Documentation Files
-1. **IMPROVEMENTS.md** (NEW)
-   - Detailed feature documentation
-   - Performance metrics
-   - Integration guide
-   - Future enhancements
-
-2. **API_QUICK_REFERENCE.md** (NEW)
-   - Quick usage examples
-   - PowerShell/curl snippets
-   - Troubleshooting guide
-   - Development notes
 
 ---
 
-## Performance Metrics
+## Model Performance (v1.2.0)
 
 ### Response Times
 | Endpoint | First Call | Cached Call | Speedup |

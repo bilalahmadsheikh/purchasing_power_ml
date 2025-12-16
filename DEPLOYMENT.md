@@ -1,5 +1,10 @@
 # Deployment Guide
 
+## v1.2.0 Updates
+- **Ensemble Model:** Both LightGBM and XGBoost models are deployed
+- **Model Selection:** API supports `model_type` parameter
+- **Port:** Default changed to 8001
+
 ## GitHub Setup
 
 ### 1. Initialize and Push to GitHub
@@ -19,6 +24,43 @@ git push -u origin main
 git checkout -b develop
 git push -u origin develop
 ```
+
+### 3. Push Changes to Both Branches
+
+```bash
+git add .
+git commit -m "Your commit message"
+git push origin develop
+git checkout main
+git merge develop
+git push origin main
+git checkout develop
+```
+
+## Running the API
+
+### Local Development
+```bash
+python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8001 --reload
+```
+
+### Production
+```bash
+python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8001 --workers 4
+```
+
+### Docker
+```bash
+docker-compose -f docker/docker-compose.prod.yml up -d
+```
+
+## Model Files Required
+
+Ensure these files exist in `models/pppq/`:
+- `lgbm_model.txt` - LightGBM model
+- `xgb_model.json` - XGBoost model (for ensemble)
+- `label_encoder.pkl` - Class label encoder
+- `feature_columns.json` - Feature names list
 
 ## Configure GitHub Secrets
 

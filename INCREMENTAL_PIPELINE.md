@@ -1,16 +1,42 @@
 # 📊 Incremental ML Pipeline Documentation
 
-## Overview
+## Overview (v1.2.0)
 
 The **PPP-Q Incremental ML Pipeline** is an automated workflow that runs every 15 days to:
 - Fetch ONLY new economic and market data (not re-fetch everything)
 - Append new rows to the existing consolidated dataset
 - Preprocess only the new data rows
 - Retrain models on the complete dataset (existing + new)
+- **Train ensemble model (LightGBM + XGBoost)**
+- **Apply dynamic weights based on investment horizon**
 - Automatically deploy if performance improves
 - Send email notifications to stakeholders
 
 This approach is **resource-efficient** and **time-saving** compared to full retrains that re-fetch 10+ years of historical data.
+
+---
+
+## v1.2.0 Enhancements
+
+### Ensemble Model Training
+- **LightGBM:** Primary model (90.28% Macro F1)
+- **XGBoost:** Secondary model (89.44% Macro F1)
+- **Ensemble:** Average of both (~90.35% Macro F1)
+
+### Dynamic Weight System
+| Horizon | PP Score | Volatility | Cycle | Growth | Consistency | Recovery | Risk-Adj |
+|---------|----------|------------|-------|--------|-------------|----------|----------|
+| <2Y | 25% | 25% | 20% | 10% | 10% | 10% | 0% |
+| 2-5Y | 25% | 20% | 15% | 15% | 10% | 10% | 5% |
+| 5Y+ | 20% | 15% | 10% | 20% | 10% | 15% | 10% |
+
+### Classification Thresholds
+| Class | Score | Description |
+|-------|-------|-------------|
+| **A_PRESERVER** | ≥ 65 | Strong PP preservation + growth |
+| **B_PARTIAL** | 55-64 | Adequate PP preservation |
+| **C_ERODER** | 42-54 | Marginal, may lose to inflation |
+| **D_DESTROYER** | < 42 | Significant PP destruction |
 
 ---
 

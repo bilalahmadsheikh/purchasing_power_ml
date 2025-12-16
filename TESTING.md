@@ -1,6 +1,6 @@
 # 🧪 Testing Documentation
 
-## Overview
+## Overview (v1.2.0)
 
 This document describes all test categories, what's being tested, and how to run them.
 
@@ -9,6 +9,50 @@ The testing suite covers:
 2. **ML Tests** - Model validation, drift detection, data validation
 3. **Data Tests** - Data quality, schema validation
 4. **Integration Tests** - End-to-end workflows
+5. **Ensemble Tests** - LightGBM + XGBoost ensemble predictions
+
+---
+
+## v1.2.0 Test Updates
+
+### New Test Categories
+
+#### Ensemble Model Tests
+```python
+def test_ensemble_prediction():
+    """Test ensemble (LightGBM + XGBoost) predictions"""
+    # Checks: model_type="ensemble" works correctly
+    # Ensures: Both models loaded and averaged
+
+def test_model_type_lgbm():
+    """Test LightGBM-only predictions"""
+    # Checks: model_type="lgbm" returns valid prediction
+    # Ensures: LightGBM standalone works
+
+def test_model_type_xgb():
+    """Test XGBoost-only predictions"""
+    # Checks: model_type="xgb" returns valid prediction
+    # Ensures: XGBoost standalone works
+
+def test_dynamic_weights():
+    """Test dynamic weight calculation"""
+    # Checks: Weights change based on horizon_years
+    # Ensures: <2Y, 2-5Y, 5Y+ have different weights
+
+def test_threshold_classification():
+    """Test threshold-based classification"""
+    # Checks: Score >= 65 → A_PRESERVER, etc.
+    # Ensures: Deterministic classification
+```
+
+### Test Command
+```bash
+# Run all tests
+python -m pytest tests/ -v
+
+# Test ensemble specifically
+python -m pytest tests/ -v -k "ensemble or model_type"
+```
 
 ---
 
