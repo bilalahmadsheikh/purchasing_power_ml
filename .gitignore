@@ -87,6 +87,7 @@ logs/
 # Environment Variables
 # ============================================================================
 .env
+.env.example
 .env.local
 .env.*.local
 *.pem
