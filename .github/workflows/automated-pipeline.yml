@@ -42,7 +42,8 @@ jobs:
           echo "SENDER_PASSWORD=${{ secrets.SENDER_PASSWORD }}" >> .env
           echo "SMTP_SERVER=smtp.gmail.com" >> .env
           echo "SMTP_PORT=587" >> .env
-          echo "ENABLE_NOTIFICATIONS=true" >> .env
+          echo "PIPELINE_INTERVAL_DAYS=${{ secrets.PIPELINE_INTERVAL_DAYS }}" >> .env
+          echo "ENABLE_NOTIFICATIONS=${{ secrets.ENABLE_NOTIFICATIONS }}" >> .env
       
       - name: Run ML Pipeline
         env:
