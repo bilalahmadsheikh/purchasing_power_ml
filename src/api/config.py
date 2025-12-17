@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     XGB_MACRO_F1: float = 0.9650
     COMPONENT_AVG_R2: float = 0.993  # Average R² for component scores
     MODEL_VERSION: str = "v2.0.0"  # Multi-output with egg/milk features
+    MODEL_BEST_ITERATION: int = 186  # LightGBM best iteration
     
     # Assets
     AVAILABLE_ASSETS: List[str] = [
