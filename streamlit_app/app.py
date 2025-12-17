@@ -647,79 +647,81 @@ def predict_component_scores_ml(row: pd.Series, component_models: Dict, feature_
     Predict all 8 component scores using ML models (v2.0.0)
     NO HARDCODED LOGIC - Pure ML predictions!
 
-    HORIZON-AWARE: Adjusts features based on investment timeframe
+    HORIZON-AWARE: Subtle, balanced adjustments based on investment timeframe
     """
-    # Extract features from row with HORIZON ADJUSTMENTS
+    # Extract features from row with BALANCED HORIZON ADJUSTMENTS
     features = []
+
+    # Normalization factor: scale adjustments relative to 5Y baseline
+    horizon_scale = (horizon_years - 5.0) / 5.0  # Range: -0.8 to +1.0 for 1Y to 10Y
+
     for col in feature_columns:
         if col in row.index:
             value = row[col]
 
-            # Apply horizon-aware adjustments (same logic as backend)
-            # PP Multiplier adjustments
+            # Apply SUBTLE horizon-aware adjustments
+            # PP Multiplier: Use time-appropriate multiplier with minimal scaling
             if 'PP_Multiplier' in col:
                 if pd.notna(value) and value != 0:
-                    if '5Y' in col:
-                        horizon_adj = float(value) * (horizon_years / 5.0)
-                    elif '10Y' in col:
-                        horizon_adj = float(value) * (horizon_years / 10.0)
+                    # Match horizon to appropriate PP multiplier column
+                    if '1Y' in col and horizon_years <= 2:
+                        features.append(float(value))
+                    elif '5Y' in col and 2 < horizon_years <= 7:
+                        features.append(float(value))
+                    elif '10Y' in col and horizon_years > 7:
+                        features.append(float(value))
                     else:
-                        horizon_adj = float(value) * horizon_years
-                    features.append(horizon_adj)
+                        # Interpolate between multipliers (very subtle)
+                        features.append(float(value) * (1.0 + horizon_scale * 0.05))
                 else:
                     features.append(0.0)
 
-            # Volatility adjustments (time diversification)
-            elif 'Volatility' in col:
+            # Volatility: VERY SUBTLE time diversification (5-10% reduction max)
+            elif 'Volatility' in col or 'Max_Drawdown' in col or 'Downside_Deviation' in col:
                 if pd.notna(value):
-                    vol_decay = max(0.6, 1.0 - (horizon_years - 1) * 0.08)
-                    features.append(float(value) * vol_decay)
+                    # Long-term: volatility matters slightly less (time to recover)
+                    vol_factor = 1.0 - (max(0, horizon_scale) * 0.10)  # Max 10% reduction for 10Y
+                    features.append(float(value) * vol_factor)
                 else:
                     features.append(0.0)
 
-            # Cycle position adjustments
-            elif 'Distance_From_ATH' in col or 'Distance_From_MA' in col:
+            # Cycle position: Slightly less important for long-term
+            elif 'Distance_From_ATH' in col or 'Distance_From_MA' in col or 'Trend_Strength' in col:
                 if pd.notna(value):
-                    if horizon_years < 2:
-                        cycle_adj = float(value) * 1.2
-                    elif horizon_years < 5:
-                        cycle_adj = float(value)
-                    else:
-                        cycle_adj = float(value) * 0.8
-                    features.append(cycle_adj)
+                    # Short-term: cycle timing matters more
+                    cycle_factor = 1.0 + (horizon_scale * -0.08)  # 1.08 at 1Y, 0.92 at 10Y
+                    features.append(float(value) * cycle_factor)
                 else:
                     features.append(0.0)
 
-            # Growth potential adjustments
+            # Growth/Saturation: Slightly more important for long-term
             elif 'Market_Cap_Saturation' in col or 'Growth_Potential' in col:
                 if pd.notna(value):
-                    growth_adj = float(value) * (1.0 + (horizon_years - 1) * 0.08)
-                    features.append(growth_adj)
+                    # Long-term: growth potential matters more
+                    growth_factor = 1.0 + (max(0, horizon_scale) * 0.08)  # Max 8% boost for 10Y
+                    features.append(float(value) * growth_factor)
                 else:
                     features.append(0.0)
 
-            # Max Drawdown tolerance
-            elif 'Max_Drawdown' in col:
-                if pd.notna(value):
-                    if horizon_years < 2:
-                        dd_adj = float(value)
-                    elif horizon_years < 5:
-                        dd_adj = float(value) * 0.9
-                    else:
-                        dd_adj = float(value) * 0.8
-                    features.append(dd_adj)
-                else:
-                    features.append(0.0)
-
-            # Sharpe/Calmar adjustments
+            # Sharpe/Calmar: Slightly more important for long-term
             elif 'Sharpe' in col or 'Calmar' in col:
                 if pd.notna(value):
-                    sharpe_adj = float(value) * (1.0 + (horizon_years - 1) * 0.12)
-                    features.append(sharpe_adj)
+                    # Risk-adjusted returns compound over time
+                    sharpe_factor = 1.0 + (max(0, horizon_scale) * 0.06)  # Max 6% boost for 10Y
+                    features.append(float(value) * sharpe_factor)
                 else:
                     features.append(0.0)
 
-            # Default: use as-is
+            # Recovery metrics: Slightly less important for long-term
+            elif 'Recovery' in col or 'Consistency' in col:
+                if pd.notna(value):
+                    # Short-term: recovery speed matters more
+                    recovery_factor = 1.0 + (horizon_scale * -0.05)  # 1.05 at 1Y, 0.95 at 10Y
+                    features.append(float(value) * recovery_factor)
+                else:
+                    features.append(0.0)
+
+            # Default: use as-is (no adjustment)
             else:
                 if pd.isna(value):
                     features.append(0.0)
@@ -1306,16 +1308,8 @@ def make_prediction(asset: str, horizon_years: int, model_type: str, models: Dic
             # If ML classification fails, fall back to threshold-based
             predicted_class = None
 
-    # Calculate adjusted_score for insights (horizon-aware)
+    # Use final_score as-is (ML models already account for horizon through feature adjustments)
     adjusted_score = final_score
-    if horizon_years >= 7:
-        # Long-term: boost score if growth potential is high
-        growth_bonus = min(10, (latest_row.get('PP_Multiplier_10Y', 1.0) - 1.0) * 20)
-        adjusted_score = min(100, final_score + growth_bonus)
-    elif horizon_years <= 2:
-        # Short-term: penalize high volatility more
-        vol_penalty = min(10, latest_row.get('Volatility_90D', 0) / 10)
-        adjusted_score = max(0, final_score - vol_penalty)
 
     # Fallback to threshold-based classification if ML not available
     if predicted_class is None:
@@ -2944,7 +2938,7 @@ def main():
 
         **Version:** v2.0.0 (Multi-Output ML)
         **Author:** Bilal Ahmad Sheikh (GIKI)
-        **Last Updated:** December 2024
+        **Last Updated:** December 2025
         **Models:** 10 (2 classifiers + 8 regressors)
         **Performance:** 96.30% Classification F1 | 99.3% Regression R²
         """)
