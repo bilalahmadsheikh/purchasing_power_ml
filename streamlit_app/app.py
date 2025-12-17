@@ -2421,7 +2421,7 @@ def main():
         
         | Component | Weight | Description |
         |-----------|--------|-------------|
-        | **Real Purchasing Power** | 25% | Can you buy MORE goods with this asset vs cash? |
+        | **Real Purchasing Power** | 25% | Can you buy MORE goods with this asset vs cash and other commidities? |
         | **Volatility Risk** | 20% | How stable is this asset? (Higher = more stable) |
         | **Market Cycle** | 15% | Is now a good time to buy? |
         | **Growth Potential** | 15% | How much MORE can this grow? |
