@@ -642,16 +642,89 @@ def get_asset_category(asset: str) -> str:
         return 'metal'
     return 'default'
 
-def predict_component_scores_ml(row: pd.Series, component_models: Dict, feature_columns: List[str]) -> Dict:
+def predict_component_scores_ml(row: pd.Series, component_models: Dict, feature_columns: List[str], horizon_years: float = 5) -> Dict:
     """
     Predict all 8 component scores using ML models (v2.0.0)
     NO HARDCODED LOGIC - Pure ML predictions!
+
+    HORIZON-AWARE: Adjusts features based on investment timeframe
     """
-    # Extract features from row
+    # Extract features from row with HORIZON ADJUSTMENTS
     features = []
     for col in feature_columns:
         if col in row.index:
-            features.append(row[col])
+            value = row[col]
+
+            # Apply horizon-aware adjustments (same logic as backend)
+            # PP Multiplier adjustments
+            if 'PP_Multiplier' in col:
+                if pd.notna(value) and value != 0:
+                    if '5Y' in col:
+                        horizon_adj = float(value) * (horizon_years / 5.0)
+                    elif '10Y' in col:
+                        horizon_adj = float(value) * (horizon_years / 10.0)
+                    else:
+                        horizon_adj = float(value) * horizon_years
+                    features.append(horizon_adj)
+                else:
+                    features.append(0.0)
+
+            # Volatility adjustments (time diversification)
+            elif 'Volatility' in col:
+                if pd.notna(value):
+                    vol_decay = max(0.6, 1.0 - (horizon_years - 1) * 0.08)
+                    features.append(float(value) * vol_decay)
+                else:
+                    features.append(0.0)
+
+            # Cycle position adjustments
+            elif 'Distance_From_ATH' in col or 'Distance_From_MA' in col:
+                if pd.notna(value):
+                    if horizon_years < 2:
+                        cycle_adj = float(value) * 1.2
+                    elif horizon_years < 5:
+                        cycle_adj = float(value)
+                    else:
+                        cycle_adj = float(value) * 0.8
+                    features.append(cycle_adj)
+                else:
+                    features.append(0.0)
+
+            # Growth potential adjustments
+            elif 'Market_Cap_Saturation' in col or 'Growth_Potential' in col:
+                if pd.notna(value):
+                    growth_adj = float(value) * (1.0 + (horizon_years - 1) * 0.08)
+                    features.append(growth_adj)
+                else:
+                    features.append(0.0)
+
+            # Max Drawdown tolerance
+            elif 'Max_Drawdown' in col:
+                if pd.notna(value):
+                    if horizon_years < 2:
+                        dd_adj = float(value)
+                    elif horizon_years < 5:
+                        dd_adj = float(value) * 0.9
+                    else:
+                        dd_adj = float(value) * 0.8
+                    features.append(dd_adj)
+                else:
+                    features.append(0.0)
+
+            # Sharpe/Calmar adjustments
+            elif 'Sharpe' in col or 'Calmar' in col:
+                if pd.notna(value):
+                    sharpe_adj = float(value) * (1.0 + (horizon_years - 1) * 0.12)
+                    features.append(sharpe_adj)
+                else:
+                    features.append(0.0)
+
+            # Default: use as-is
+            else:
+                if pd.isna(value):
+                    features.append(0.0)
+                else:
+                    features.append(float(value))
         else:
             features.append(0)  # Default value for missing features
 
@@ -1164,7 +1237,8 @@ def make_prediction(asset: str, horizon_years: int, model_type: str, models: Dic
 
     if component_models and len(component_models) > 0 and feature_columns:
         # ML-POWERED COMPONENT SCORES (v2.0.0) - NO HARDCODED LOGIC!
-        component_scores = predict_component_scores_ml(latest_row, component_models, feature_columns)
+        # HORIZON-AWARE: Scores will change based on investment timeframe
+        component_scores = predict_component_scores_ml(latest_row, component_models, feature_columns, horizon_years)
     else:
         # Fallback to hardcoded scoring if ML models not available
         component_scores = calculate_component_scores(latest_row, asset, horizon_years)
