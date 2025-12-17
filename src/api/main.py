@@ -111,6 +111,7 @@ def predict_endpoint(input_data: PredictionInput):
     - lgbm: LightGBM only (fastest)
     - xgb: XGBoost only
     - ensemble: Average of LightGBM + XGBoost (most robust, default)
+    - regression: Regression-based prediction (for components)
     """
     try:
         logger.info(f"Prediction request for {input_data.asset} ({input_data.horizon_years}Y horizon, model={input_data.model_type.value})")
