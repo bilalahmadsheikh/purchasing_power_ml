@@ -275,5 +275,23 @@ class ModelRegistry:
             return False, current_production['test_metrics']
 
 
+# Model artifact paths (v2.0.0 - tracks 10 models)
+MODEL_ARTIFACTS_V2 = {
+    # Classifiers
+    'lgbm_classifier': 'models/pppq/lgbm_classifier.txt',
+    'xgb_classifier': 'models/pppq/xgb_classifier.json',
+
+    # Component Regressors
+    'lgbm_real_pp': 'models/pppq/lgbm_target_real_pp_score_regressor.txt',
+    'lgbm_volatility': 'models/pppq/lgbm_target_volatility_score_regressor.txt',
+    'lgbm_cycle': 'models/pppq/lgbm_target_cycle_score_regressor.txt',
+    'lgbm_growth': 'models/pppq/lgbm_target_growth_score_regressor.txt',
+    'lgbm_consistency': 'models/pppq/lgbm_target_consistency_score_regressor.txt',
+    'lgbm_recovery': 'models/pppq/lgbm_target_recovery_score_regressor.txt',
+    'lgbm_risk_adjusted': 'models/pppq/lgbm_target_risk_adjusted_score_regressor.txt',
+    'lgbm_commodity': 'models/pppq/lgbm_target_commodity_score_regressor.txt'
+}
+
+
 # Global registry instance
 registry = ModelRegistry()
