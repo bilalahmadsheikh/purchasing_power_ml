@@ -647,7 +647,7 @@ def predict_component_scores_ml(row: pd.Series, component_models: Dict, feature_
     Predict all 8 component scores using ML models (v2.0.0)
     NO HARDCODED LOGIC - Pure ML predictions!
 
-    HORIZON-AWARE: Subtle, balanced adjustments based on investment timeframe
+    HORIZON-AWARE: Moderate, noticeable adjustments based on investment timeframe
     """
     # Extract features from row with BALANCED HORIZON ADJUSTMENTS
     features = []
@@ -659,8 +659,8 @@ def predict_component_scores_ml(row: pd.Series, component_models: Dict, feature_
         if col in row.index:
             value = row[col]
 
-            # Apply SUBTLE horizon-aware adjustments
-            # PP Multiplier: Use time-appropriate multiplier with minimal scaling
+            # Apply MODERATE horizon-aware adjustments (±15-25% range)
+            # PP Multiplier: Prefer time-matched columns, interpolate with moderate scaling
             if 'PP_Multiplier' in col:
                 if pd.notna(value) and value != 0:
                     # Match horizon to appropriate PP multiplier column
@@ -671,52 +671,52 @@ def predict_component_scores_ml(row: pd.Series, component_models: Dict, feature_
                     elif '10Y' in col and horizon_years > 7:
                         features.append(float(value))
                     else:
-                        # Interpolate between multipliers (very subtle)
-                        features.append(float(value) * (1.0 + horizon_scale * 0.05))
+                        # Interpolate with moderate scaling (±12% max)
+                        features.append(float(value) * (1.0 + horizon_scale * 0.12))
                 else:
                     features.append(0.0)
 
-            # Volatility: VERY SUBTLE time diversification (5-10% reduction max)
+            # Volatility: Time diversification effect (20% reduction max for 10Y)
             elif 'Volatility' in col or 'Max_Drawdown' in col or 'Downside_Deviation' in col:
                 if pd.notna(value):
-                    # Long-term: volatility matters slightly less (time to recover)
-                    vol_factor = 1.0 - (max(0, horizon_scale) * 0.10)  # Max 10% reduction for 10Y
+                    # Long-term: volatility matters less (time to recover)
+                    vol_factor = 1.0 - (max(0, horizon_scale) * 0.20)  # Max 20% reduction for 10Y
                     features.append(float(value) * vol_factor)
                 else:
                     features.append(0.0)
 
-            # Cycle position: Slightly less important for long-term
+            # Cycle position: Moderately less important for long-term
             elif 'Distance_From_ATH' in col or 'Distance_From_MA' in col or 'Trend_Strength' in col:
                 if pd.notna(value):
                     # Short-term: cycle timing matters more
-                    cycle_factor = 1.0 + (horizon_scale * -0.08)  # 1.08 at 1Y, 0.92 at 10Y
+                    cycle_factor = 1.0 + (horizon_scale * -0.15)  # 1.12 at 1Y, 0.85 at 10Y
                     features.append(float(value) * cycle_factor)
                 else:
                     features.append(0.0)
 
-            # Growth/Saturation: Slightly more important for long-term
+            # Growth/Saturation: More important for long-term (compounding)
             elif 'Market_Cap_Saturation' in col or 'Growth_Potential' in col:
                 if pd.notna(value):
-                    # Long-term: growth potential matters more
-                    growth_factor = 1.0 + (max(0, horizon_scale) * 0.08)  # Max 8% boost for 10Y
+                    # Long-term: growth potential matters significantly more
+                    growth_factor = 1.0 + (max(0, horizon_scale) * 0.18)  # Max 18% boost for 10Y
                     features.append(float(value) * growth_factor)
                 else:
                     features.append(0.0)
 
-            # Sharpe/Calmar: Slightly more important for long-term
+            # Sharpe/Calmar: More important for long-term (compounding returns)
             elif 'Sharpe' in col or 'Calmar' in col:
                 if pd.notna(value):
                     # Risk-adjusted returns compound over time
-                    sharpe_factor = 1.0 + (max(0, horizon_scale) * 0.06)  # Max 6% boost for 10Y
+                    sharpe_factor = 1.0 + (max(0, horizon_scale) * 0.15)  # Max 15% boost for 10Y
                     features.append(float(value) * sharpe_factor)
                 else:
                     features.append(0.0)
 
-            # Recovery metrics: Slightly less important for long-term
+            # Recovery metrics: Less important for long-term (more time to recover)
             elif 'Recovery' in col or 'Consistency' in col:
                 if pd.notna(value):
                     # Short-term: recovery speed matters more
-                    recovery_factor = 1.0 + (horizon_scale * -0.05)  # 1.05 at 1Y, 0.95 at 10Y
+                    recovery_factor = 1.0 + (horizon_scale * -0.12)  # 1.10 at 1Y, 0.88 at 10Y
                     features.append(float(value) * recovery_factor)
                 else:
                     features.append(0.0)
