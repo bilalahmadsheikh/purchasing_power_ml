@@ -6,27 +6,59 @@
     "PP_Multiplier_1Y",
     "PP_Multiplier_5Y",
     "PP_Multiplier_10Y",
+    "PP_vs_Cash_5Y",
     "Volatility_90D",
     "Sharpe_Ratio_5Y",
+    "Calmar_Ratio_5Y",
     "Max_Drawdown",
-    "Distance_From_ATH_Pct",
     "Distance_From_MA_200D_Pct",
+    "Distance_From_MA_50D_Pct",
+    "Distance_From_ATH_Pct",
+    "Days_Since_ATH",
+    "Momentum_50D",
+    "Momentum_200D",
     "Market_Cap_Saturation_Pct",
+    "Growth_Potential_Multiplier",
     "Composite_Score_5Y",
+    "Vol_Adj_PP_Score_5Y",
+    "Correlation_With_SP500",
+    "Correlation_With_Gold",
+    "CPI_Correlation",
+    "Scarcity_Score",
+    "Days_Since_Bitcoin_Halving",
+    "Bitcoin_Cycle_Year",
+    "Real_PP_Index",
+    "Eggs_Per_100USD",
+    "Milk_Gallons_Per_100USD",
+    "Real_Return_Eggs_1Y",
+    "Real_Return_Milk_1Y",
+    "Real_Commodity_Basket_Return_1Y",
+    "Recession_Risk",
+    "Yield_Curve_Inverted",
     "PP_Stability_Index",
     "Return_Consistency",
     "Recovery_Strength",
-    "Days_Since_ATH",
     "PPP_Q_Composite_Score"
   ],
   "target": "PPP_Q_Class",
+  "component_targets": [
+    "Target_Real_PP_Score",
+    "Target_Volatility_Score",
+    "Target_Cycle_Score",
+    "Target_Growth_Score",
+    "Target_Consistency_Score",
+    "Target_Recovery_Score",
+    "Target_Risk_Adjusted_Score",
+    "Target_Commodity_Score"
+  ],
   "classes": [
     "A_PRESERVER",
     "B_PARTIAL",
     "C_ERODER",
     "D_DESTROYER"
   ],
-  "num_features": 18,
+  "num_features": 39,
+  "num_component_targets": 8,
   "assets": [
     "Bitcoin",
     "Ethereum",
@@ -43,5 +75,34 @@
     "Apple",
     "Microsoft",
     "JPMorgan"
-  ]
+  ],
+  "asset_categories": {
+    "crypto": [
+      "Bitcoin",
+      "Ethereum",
+      "Litecoin"
+    ],
+    "metals": [
+      "Gold",
+      "Silver"
+    ],
+    "indices": [
+      "SP500",
+      "NASDAQ",
+      "DowJones"
+    ],
+    "commodities": [
+      "Oil"
+    ],
+    "etfs": [
+      "Gold_ETF",
+      "TreasuryBond_ETF",
+      "RealEstate_ETF"
+    ],
+    "stocks": [
+      "Apple",
+      "Microsoft",
+      "JPMorgan"
+    ]
+  }
 }

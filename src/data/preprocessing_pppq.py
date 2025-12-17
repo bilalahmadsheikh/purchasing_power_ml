@@ -345,38 +345,42 @@ for asset in config.CORE_ASSETS:
         asset_df['Bitcoin_Cycle_Year'] = 0.0
     
     # ========================================================================
-    # REAL COMMODITY FEATURES
+    # REAL COMMODITY FEATURES - EGGS & MILK (NEW!)
     # ========================================================================
-    
+
     # Real PP Index
     if 'Real_PP_Index' in df.columns:
         asset_df['Real_PP_Index'] = df['Real_PP_Index'].apply(round_to_3dp)
     else:
         asset_df['Real_PP_Index'] = 100.0
-    
-    # Eggs/Milk purchasing power
+
+    # Eggs/Milk purchasing power - INCLUDE IN FEATURES
     if 'Eggs_Per_100USD' in df.columns:
         asset_df['Eggs_Per_100USD'] = df['Eggs_Per_100USD'].apply(round_to_3dp)
     else:
         asset_df['Eggs_Per_100USD'] = 0.0
-    
+
     if 'Milk_Gallons_Per_100USD' in df.columns:
         asset_df['Milk_Gallons_Per_100USD'] = df['Milk_Gallons_Per_100USD'].apply(round_to_3dp)
     else:
         asset_df['Milk_Gallons_Per_100USD'] = 0.0
-    
-    # Asset denominated in commodities
+
+    # Asset denominated in commodities - INCLUDE IN FEATURES
     egg_return_col = f'{asset}_Real_Return_Eggs_1Y'
     if egg_return_col in df.columns:
         asset_df['Real_Return_Eggs_1Y'] = df[egg_return_col].apply(round_to_3dp)
     else:
         asset_df['Real_Return_Eggs_1Y'] = 0.0
-    
+
     milk_return_col = f'{asset}_Real_Return_Milk_1Y'
     if milk_return_col in df.columns:
         asset_df['Real_Return_Milk_1Y'] = df[milk_return_col].apply(round_to_3dp)
     else:
         asset_df['Real_Return_Milk_1Y'] = 0.0
+
+    # Commodity basket average (egg + milk combined score)
+    avg_commodity_return = (asset_df['Real_Return_Eggs_1Y'] + asset_df['Real_Return_Milk_1Y']) / 2
+    asset_df['Real_Commodity_Basket_Return_1Y'] = avg_commodity_return.apply(round_to_3dp)
     
     # ========================================================================
     # REGIME FEATURES
@@ -436,19 +440,20 @@ print("\n" + "="*80)
 print("STEP 3: CALCULATING ASSET-SPECIFIC COMPOSITE SCORES")
 print("="*80)
 
-def calculate_enhanced_composite_score(row):
+def calculate_enhanced_composite_score(row, return_components=False):
     """
     Enhanced composite scoring with asset-specific logic
+    Now also returns individual component scores for ML training targets
     """
-    
+
     asset_category = row['Asset_Category']
-    
+
     # ========================================================================
-    # COMPONENT 1: Real Consumption PP (25%)
+    # COMPONENT 1: Real Consumption PP (25%) + Real Commodity Component
     # ========================================================================
-    
+
     pp_mult = row['PP_Multiplier_5Y']
-    
+
     if pp_mult < 0.85:
         consumption_score = 0.0
     elif pp_mult < 1.0:
@@ -459,15 +464,31 @@ def calculate_enhanced_composite_score(row):
         consumption_score = 80.0 + (pp_mult - 1.3) / 0.7 * 15.0
     else:
         consumption_score = min(100.0, 95.0 + np.log10(pp_mult - 2.0 + 1) * 5.0)
-    
+
+    # Real Commodity Component (Eggs + Milk)
+    commodity_return = row.get('Real_Commodity_Basket_Return_1Y', 0)
+    if commodity_return > 20:
+        commodity_score = 95.0
+    elif commodity_return > 5:
+        commodity_score = 75.0
+    elif commodity_return > -5:
+        commodity_score = 50.0
+    elif commodity_return > -15:
+        commodity_score = 25.0
+    else:
+        commodity_score = 10.0
+
+    # Blend PP with commodity purchasing power (70% PP, 30% commodity)
+    real_pp_score = consumption_score * 0.70 + commodity_score * 0.30
+
     # ========================================================================
     # COMPONENT 2: Volatility Penalty (20%) - ASSET-SPECIFIC
     # ========================================================================
-    
+
     volatility = row['Volatility_90D']
     vol_multiplier = config.VOLATILITY_MULTIPLIERS.get(asset_category, 1.0)
     adjusted_vol = volatility * vol_multiplier
-    
+
     if adjusted_vol < 10:
         vol_score = 100.0
     elif adjusted_vol < 15:
@@ -480,14 +501,14 @@ def calculate_enhanced_composite_score(row):
         vol_score = 20.0
     else:
         vol_score = max(0.0, 10.0 - (adjusted_vol - 60) / 10.0)
-    
+
     # ========================================================================
     # COMPONENT 3: Market Cycle Position (15%) - NEW!
     # ========================================================================
-    
+
     distance_ath = row['Distance_From_ATH_Pct']
     distance_ma200 = row['Distance_From_MA_200D_Pct']
-    
+
     # Near ATH = risky, far from ATH = opportunity
     if distance_ath > -5:  # Within 5% of ATH
         ath_score = 30.0  # Risky
@@ -497,7 +518,7 @@ def calculate_enhanced_composite_score(row):
         ath_score = 85.0
     else:
         ath_score = 100.0  # Deep value
-    
+
     # Above MA200 = uptrend, below = downtrend
     if distance_ma200 > 20:
         ma_score = 40.0  # Overextended
@@ -507,15 +528,15 @@ def calculate_enhanced_composite_score(row):
         ma_score = 60.0  # Correction
     else:
         ma_score = 30.0  # Bear market
-    
+
     cycle_score = (ath_score * 0.6 + ma_score * 0.4)
-    
+
     # ========================================================================
     # COMPONENT 4: Growth Potential (15%)
     # ========================================================================
-    
+
     saturation = row['Market_Cap_Saturation_Pct']
-    
+
     if saturation < 10:
         growth_score = 100.0  # Huge upside
     elif saturation < 30:
@@ -528,20 +549,20 @@ def calculate_enhanced_composite_score(row):
         growth_score = 25.0
     else:
         growth_score = 10.0  # Saturated
-    
+
     # ========================================================================
     # COMPONENT 5: Consistency (10%)
     # ========================================================================
-    
-    consistency = row['Return_Consistency'] * 50 + row['PP_Stability_Index'] * 50
-    
+
+    consistency_score = row['Return_Consistency'] * 50 + row['PP_Stability_Index'] * 50
+
     # ========================================================================
     # COMPONENT 6: Recovery (10%)
     # ========================================================================
-    
+
     max_dd = row['Max_Drawdown']
     recovery = row['Recovery_Strength']
-    
+
     if max_dd < 10:
         dd_score = 60.0
     elif max_dd < 25:
@@ -552,15 +573,15 @@ def calculate_enhanced_composite_score(row):
         dd_score = 15.0
     else:
         dd_score = 0.0
-    
+
     recovery_score = dd_score * 0.6 + recovery * 100 * 0.4
-    
+
     # ========================================================================
     # COMPONENT 7: Risk-Adjusted (5%)
     # ========================================================================
-    
+
     sharpe = row['Sharpe_Ratio_5Y']
-    
+
     if sharpe < 0:
         risk_adj_score = 0.0
     elif sharpe < 0.5:
@@ -569,11 +590,11 @@ def calculate_enhanced_composite_score(row):
         risk_adj_score = 50.0 + (sharpe - 0.5) / 0.5 * 30.0
     else:
         risk_adj_score = min(100.0, 80.0 + sharpe * 10.0)
-    
+
     # ========================================================================
     # CRYPTO-SPECIFIC ADJUSTMENTS
     # ========================================================================
-    
+
     if asset_category == 'crypto':
         # Bitcoin cycle penalty
         if row['Asset'] == 'Bitcoin':
@@ -587,28 +608,59 @@ def calculate_enhanced_composite_score(row):
                 cycle_bonus = 5.0
             else:
                 cycle_bonus = -15.0  # Penalty for year 3
-            
+
             cycle_score += cycle_bonus
             cycle_score = np.clip(cycle_score, 0, 100)
-    
+
     # ========================================================================
     # FINAL COMPOSITE
     # ========================================================================
-    
+
     composite = (
-        consumption_score * 0.25 +
+        real_pp_score * 0.25 +
         vol_score * 0.20 +
         cycle_score * 0.15 +
         growth_score * 0.15 +
-        consistency * 0.10 +
+        consistency_score * 0.10 +
         recovery_score * 0.10 +
         risk_adj_score * 0.05
     )
-    
-    return round(composite, 3)
 
-print("\n🔨 Calculating enhanced composite scores...")
+    if return_components:
+        return {
+            'composite': round(composite, 3),
+            'real_pp_score': round(real_pp_score, 3),
+            'volatility_score': round(vol_score, 3),
+            'cycle_score': round(cycle_score, 3),
+            'growth_score': round(growth_score, 3),
+            'consistency_score': round(consistency_score, 3),
+            'recovery_score': round(recovery_score, 3),
+            'risk_adjusted_score': round(risk_adj_score, 3),
+            'commodity_score': round(commodity_score, 3)
+        }
+    else:
+        return round(composite, 3)
+
+print("\n🔨 Calculating enhanced composite scores and component scores...")
+
+# Calculate composite scores
 pppq_df['PPP_Q_Composite_Score'] = pppq_df.apply(calculate_enhanced_composite_score, axis=1)
+
+# Calculate individual component scores (ground truth for ML training)
+component_results = pppq_df.apply(lambda row: calculate_enhanced_composite_score(row, return_components=True), axis=1)
+component_df = pd.DataFrame(component_results.tolist())
+
+# Add component scores as separate columns (these will be ML training targets)
+pppq_df['Target_Real_PP_Score'] = component_df['real_pp_score']
+pppq_df['Target_Volatility_Score'] = component_df['volatility_score']
+pppq_df['Target_Cycle_Score'] = component_df['cycle_score']
+pppq_df['Target_Growth_Score'] = component_df['growth_score']
+pppq_df['Target_Consistency_Score'] = component_df['consistency_score']
+pppq_df['Target_Recovery_Score'] = component_df['recovery_score']
+pppq_df['Target_Risk_Adjusted_Score'] = component_df['risk_adjusted_score']
+pppq_df['Target_Commodity_Score'] = component_df['commodity_score']
+
+print(f"✅ Composite score and 8 component scores calculated")
 
 # ========================================================================
 # ASSIGN CLASSES WITH ASSET-SPECIFIC LOGIC
@@ -713,13 +765,21 @@ val_df.to_csv(config.PROCESSED_DIR + 'val/pppq_val.csv', index=False)
 test_df.to_csv(config.PROCESSED_DIR + 'test/pppq_test.csv', index=False)
 
 # Save feature list
-feature_cols = [col for col in pppq_df.columns if col not in ['Date', 'Asset', 'PPP_Q_Class', 'Inflation_Regime', 'Asset_Category']]
+# Exclude: Date, Asset, PPP_Q_Class, Inflation_Regime, Asset_Category, Target_* columns
+exclude_cols = ['Date', 'Asset', 'PPP_Q_Class', 'Inflation_Regime', 'Asset_Category']
+exclude_cols += [col for col in pppq_df.columns if col.startswith('Target_')]  # Exclude target scores
+feature_cols = [col for col in pppq_df.columns if col not in exclude_cols]
+
+# Target columns for multi-output regression
+target_cols = [col for col in pppq_df.columns if col.startswith('Target_')]
 
 feature_metadata = {
     'features': feature_cols,
     'target': 'PPP_Q_Class',
+    'component_targets': target_cols,
     'classes': ['A_PRESERVER', 'B_PARTIAL', 'C_ERODER', 'D_DESTROYER'],
     'num_features': len(feature_cols),
+    'num_component_targets': len(target_cols),
     'assets': config.CORE_ASSETS,
     'asset_categories': {
         'crypto': config.CRYPTO_ASSETS,
@@ -730,6 +790,11 @@ feature_metadata = {
         'stocks': config.TECH_STOCKS
     }
 }
+
+print(f"\n📋 Features Summary:")
+print(f"   Input features: {len(feature_cols)}")
+print(f"   Component target scores: {len(target_cols)}")
+print(f"   Class target: PPP_Q_Class")
 
 with open(config.PROCESSED_DIR + 'pppq_features.json', 'w') as f:
     json.dump(feature_metadata, f, indent=2)

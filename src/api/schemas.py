@@ -191,9 +191,14 @@ class PPPQComponentScores(BaseModel):
     risk_adjusted_score: float = Field(..., ge=0, le=100, description="Quality of returns per unit of risk (Higher = better)")
     risk_adjusted_weight: float = Field(0.05, description="Weight in final score")
     risk_adjusted_analysis: str = Field(..., description="Good returns for the risk taken?")
-    
+
+    # Component 8: Real Commodity Purchasing Power (NEW - v2.0.0)
+    commodity_score: float = Field(..., ge=0, le=100, description="ML-predicted egg/milk purchasing power score")
+    commodity_weight: float = Field(0.00, description="Weight in final score (tracked separately)")
+    commodity_analysis: str = Field(..., description="Real goods purchasing power (eggs/milk)")
+
     # Final Weighted Score
-    final_composite_score: float = Field(..., ge=0, le=100, description="Weighted average of all 7 components")
+    final_composite_score: float = Field(..., ge=0, le=100, description="Weighted average of all components")
 
 class RealCommodityComparison(BaseModel):
     """
@@ -273,6 +278,7 @@ class PredictionOutput(BaseModel):
     
     # Metadata
     investment_horizon_years: float = Field(..., description="Investment horizon used for this prediction")
+    model_version: str = Field("v2.0.0", description="Model version (v2.0.0 = ML component scores + egg/milk features)")
     timestamp: datetime = Field(default_factory=datetime.now, description="Prediction timestamp")
     
     class Config:

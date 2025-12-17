@@ -30,11 +30,28 @@ class Settings(BaseSettings):
     DATA_DIR: Path = PROJECT_ROOT / "data" / "processed" / "pppq"
     LOGS_DIR: Path = PROJECT_ROOT / "logs"
     
-    # Model Files
-    LGBM_MODEL_PATH: Path = MODEL_DIR / "lgbm_model.txt"
-    XGB_MODEL_PATH: Path = MODEL_DIR / "xgb_model.json"
+    # Model Files - Classification
+    LGBM_CLASSIFIER_PATH: Path = MODEL_DIR / "lgbm_classifier.txt"
+    XGB_CLASSIFIER_PATH: Path = MODEL_DIR / "xgb_classifier.json"
     LABEL_ENCODER_PATH: Path = MODEL_DIR / "label_encoder.pkl"
     FEATURE_COLUMNS_PATH: Path = MODEL_DIR / "feature_columns.json"
+    COMPONENT_TARGETS_PATH: Path = MODEL_DIR / "component_targets.json"
+
+    # Legacy paths (for backward compatibility)
+    LGBM_MODEL_PATH: Path = MODEL_DIR / "lgbm_classifier.txt"
+    XGB_MODEL_PATH: Path = MODEL_DIR / "xgb_classifier.json"
+
+    # Component Score Models (8 regressors)
+    COMPONENT_MODEL_PATHS: dict = {
+        'real_pp': MODEL_DIR / "lgbm_target_real_pp_score_regressor.txt",
+        'volatility': MODEL_DIR / "lgbm_target_volatility_score_regressor.txt",
+        'cycle': MODEL_DIR / "lgbm_target_cycle_score_regressor.txt",
+        'growth': MODEL_DIR / "lgbm_target_growth_score_regressor.txt",
+        'consistency': MODEL_DIR / "lgbm_target_consistency_score_regressor.txt",
+        'recovery': MODEL_DIR / "lgbm_target_recovery_score_regressor.txt",
+        'risk_adjusted': MODEL_DIR / "lgbm_target_risk_adjusted_score_regressor.txt",
+        'commodity': MODEL_DIR / "lgbm_target_commodity_score_regressor.txt"
+    }
     
     # Data Files
     TEST_DATA_PATH: Path = DATA_DIR / "test" / "pppq_test.csv"
@@ -43,10 +60,13 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FILE: Path = LOGS_DIR / "api.log"
     
-    # Model Performance
-    MODEL_MACRO_F1: float = 0.9543
-    MODEL_ACCURACY: float = 0.9442
-    MODEL_BEST_ITERATION: int = 189
+    # Model Performance (Updated with Multi-Output Models)
+    MODEL_MACRO_F1: float = 0.9630  # Ensemble (LightGBM + XGBoost)
+    MODEL_ACCURACY: float = 0.9524
+    LGBM_MACRO_F1: float = 0.9594
+    XGB_MACRO_F1: float = 0.9650
+    COMPONENT_AVG_R2: float = 0.993  # Average R² for component scores
+    MODEL_VERSION: str = "v2.0.0"  # Multi-output with egg/milk features
     
     # Assets
     AVAILABLE_ASSETS: List[str] = [

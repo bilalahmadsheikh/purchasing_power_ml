@@ -17,8 +17,7 @@ from .schemas import (
     BatchPredictionInput, BatchPredictionOutput,
     HealthCheck, ModelInfo, ErrorResponse, ComparisonRequest
 )
-# Use new ML-powered prediction module (v2.0.0 - ML component scores)
-from .predict_ml import predict as predict_asset
+from .predict import predict as predict_asset
 
 # ============================================================================
 # SETUP LOGGING
@@ -194,7 +193,7 @@ def list_assets():
 @app.get("/model/info", response_model=ModelInfo)
 def model_info_endpoint():
     """Get model information"""
-    from .predict_ml import model_manager
+    from .predict import model_manager
     
     encoder = model_manager.get_encoder()
     classes = encoder.classes_.tolist() if encoder else ["A_PRESERVER", "B_PARTIAL", "C_ERODER", "D_DESTROYER"]
@@ -215,7 +214,7 @@ def model_info_endpoint():
 @app.post("/compare")
 def compare_assets(request: ComparisonRequest):
     """Compare multiple assets for the same investment horizon"""
-    from .predict_ml import predict
+    from .predict import predict
     
     if len(request.assets) < 2:
         raise HTTPException(
@@ -265,7 +264,7 @@ def get_historical_data(
     limit: int = 100
 ):
     """Get historical performance data for an asset"""
-    from .predict_ml import model_manager
+    from .predict import model_manager
     import json
     from datetime import datetime
     
@@ -328,7 +327,7 @@ def get_historical_data(
 @app.get("/data/quality/{asset}")
 def check_data_quality(asset: str):
     """Check data quality metrics for an asset"""
-    from .predict_ml import model_manager
+    from .predict import model_manager
     
     try:
         test_data = model_manager.get_data()
@@ -383,7 +382,7 @@ async def startup_event():
     logger.info("Loading models...")
     
     # Models are loaded via ModelManager singleton
-    from .predict_ml import model_manager
+    from .predict import model_manager
     logger.info(" All models loaded successfully")
     
     logger.info(f"API ready on http://{settings.HOST}:{settings.PORT}")
