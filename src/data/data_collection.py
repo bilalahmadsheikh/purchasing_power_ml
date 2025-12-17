@@ -919,7 +919,7 @@ def generate_consolidated_dataset():
     df_final_rounded = round_all_numerical_columns(df_final.copy(), decimals=4)
 
     # Save final dataset
-    final_output_path = f"{OUTPUT_DIR}/processed/final_consolidated_dataset.csv"
+    final_output_path = f"{OUTPUT_DIR}/raw/final_consolidated_dataset.csv"
     df_final_rounded.to_csv(final_output_path, index=False)
     print(f"\n✅ Final consolidated dataset saved to: {final_output_path}")
 
