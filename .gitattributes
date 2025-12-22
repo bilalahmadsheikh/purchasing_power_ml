@@ -1,3 +1,2 @@
-*.csv filter=lfs diff=lfs merge=lfs -text
-models/pppq/*.txt filter=lfs diff=lfs merge=lfs -text
-models/pppq/*.json filter=lfs diff=lfs merge=lfs -text
+# Disable Git LFS to avoid bandwidth limits
+# Models and data are now stored directly in git or generated during CI/CD
