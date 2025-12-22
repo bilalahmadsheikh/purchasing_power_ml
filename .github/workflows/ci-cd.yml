@@ -166,12 +166,86 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/build-push-action@v4
+        id: docker_build
         with:
           context: .
           file: ./docker/Dockerfile
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}-candidate
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  promote-to-stable:
+    name: Promote to Stable
+    runs-on: ubuntu-latest
+    needs: [tests, code-quality, build-docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      packages: write
+    steps:
+      - uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote candidate to stable
+        run: |
+          # Pull the candidate image
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+          # Tag as stable and latest (only if all tests passed)
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:stable
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+          # Push stable tags
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:stable
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+          echo "✅ Promoted ${{ github.sha }} to stable"
+
+  rollback-on-failure:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [tests, code-quality]
+    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    env:
+      GIT_LFS_SKIP_SMUDGE: 1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: false
+
+      - name: Disable Git LFS
+        run: |
+          git lfs uninstall || true
+          rm -rf .git/lfs || true
+
+      - name: Find last successful commit
+        id: last_success
+        run: |
+          # Find the last commit that passed CI (from ML_EXPERIMENT_RESULTS.md)
+          LAST_SUCCESS=$(grep -B 3 "Status: ✅ Tests Passed" docs/ML_EXPERIMENT_RESULTS.md | grep "Commit:" | tail -1 | awk '{print $2}')
+          echo "last_commit=$LAST_SUCCESS" >> $GITHUB_OUTPUT
+          echo "Found last successful commit: $LAST_SUCCESS"
+
+      - name: Revert to last successful commit
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # Create revert commit
+          git revert --no-commit HEAD
+          git commit -m "⚠️ Auto-rollback: Tests failed, reverting to last successful build ${{ steps.last_success.outputs.last_commit }} [skip ci]"
+          git push origin main
+
+          echo "⚠️ ROLLED BACK to ${{ steps.last_success.outputs.last_commit }}"
+
+      - name: Notify rollback
+        run: |
+          echo "::warning::CI/CD tests failed. Automatically rolled back to last successful commit: ${{ steps.last_success.outputs.last_commit }}"
