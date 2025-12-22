@@ -1,3 +1,10 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:112f65b3a4d7af2c41a9bad3af13606c4cb495f4699065d85e62b1669781fcd1
-size 223
+[
+  "Target_Real_PP_Score",
+  "Target_Volatility_Score",
+  "Target_Cycle_Score",
+  "Target_Growth_Score",
+  "Target_Consistency_Score",
+  "Target_Recovery_Score",
+  "Target_Risk_Adjusted_Score",
+  "Target_Commodity_Score"
+]
