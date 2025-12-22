@@ -1,0 +1,4 @@
+# Disable Git LFS for this repository
+[lfs]
+	fetchinclude =
+	fetchexclude = *
